@@ -40,7 +40,7 @@ export default async function RootLayout({
 
         <footer className="mt-8 border-t border-slate-300 bg-slate-100">
           <div className="shell-container flex flex-col gap-2 py-6 text-sm text-slate-600 sm:flex-row sm:items-center sm:justify-between">
-            <p>Bhavnagar Commerce - built on Next.js, Supabase, Stripe, and Resend.</p>
+            <p>Bhavnagar Commerce - scale bulk produce procurement with secure farm-to-market workflows.</p>
             <p className="font-medium">{dictionary.layout.workflowFooter}</p>
           </div>
         </footer>

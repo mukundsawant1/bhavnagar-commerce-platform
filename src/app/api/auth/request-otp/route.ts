@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { setOtp } from "@/lib/auth/otp-store";
 import { enforceRateLimit } from "@/lib/rate-limit";
+import { getResendClient } from "@/lib/notifications/email";
 
 const isValidGmail = (email: string) => /^[^\s@]+@gmail\.com$/i.test(email.trim());
 
@@ -39,14 +40,23 @@ export async function POST(request: Request) {
 
     setOtp(normalizedEmail, otp, expiresAt);
 
-    // For real production use send this OTP email via a secure provider (Resend/Supabase SMTP).
-    // We are logging the code here for dev visibility.
-    console.info(`OTP for ${normalizedEmail}: ${otp}`);
+    try {
+      const resend = getResendClient();
+      await resend.emails.send({
+        from: "no-reply@bhavnagar.com",
+        to: normalizedEmail,
+        subject: "Your login OTP for Bhavnagar Commerce",
+        text: `Your one-time passcode is ${otp}. It expires in 10 minutes. Do not share this code with anyone.`,
+      });
+    } catch (emailError) {
+      // Keep flow generic to avoid account enumeration.
+      console.warn("OTP email send failed", emailError);
+    }
 
     return NextResponse.json({
       success: true,
       message:
-        "If the email is registered, an OTP has been generated and will be sent. Follow the next step.",
+        "If the email is registered, an OTP has been sent. Use it to verify your identity.",
     });
   } catch (err) {
     return NextResponse.json(

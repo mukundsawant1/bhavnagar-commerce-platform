@@ -16,9 +16,9 @@ export default function ProductCard({ product, addLabel, askLabel }: ProductCard
   const { addItem } = useCart();
   const { showToast } = useToast();
   const initialSettings = getProductSettings(product.id);
-  const initialMinBulk = typeof initialSettings.minBulkKg === "number" ? initialSettings.minBulkKg : product.minBulkKg;
+  const initialMinBulk = typeof initialSettings.minBulkKg === "number" ? initialSettings.minBulkKg : 0;
 
-  const [quantity, setQuantity] = useState(Math.max(initialMinBulk, product.minBulkKg));
+  const [quantity, setQuantity] = useState(initialMinBulk > 0 ? initialMinBulk : 1);
   const [added, setAdded] = useState(false);
   const [minBulk] = useState(initialMinBulk);
 
@@ -70,7 +70,8 @@ export default function ProductCard({ product, addLabel, askLabel }: ProductCard
         <p className="mt-1 text-xs text-muted">Photo: {product.photoHint}</p>
         <p className="mt-2 text-xs text-slate-600">Quality Grade: {product.qualityGrade}</p>
         <div className="mt-2 rounded-md bg-slate-50 px-2 py-1 text-xs text-slate-700">
-          Min bulk: {minBulkDisplay} {product.unit} | Available: {product.availableKg} {product.unit}
+          {minBulk > 0 ? <span>Min bulk: {minBulkDisplay} {product.unit} | </span> : null}
+          <span>Available: {product.availableKg} {product.unit}</span>
         </div>
         <p className="mt-2 text-2xl font-black text-slate-900">Rs. {product.pricePerKg}/{product.unit}</p>
 

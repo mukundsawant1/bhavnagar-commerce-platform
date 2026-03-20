@@ -12,12 +12,11 @@ export async function middleware(request: NextRequest) {
 
   const isAdminRoute = pathname.startsWith("/admin");
   const isFarmRoute = pathname.startsWith("/farm");
-  const isShopRoute = pathname.startsWith("/shop");
   const isCartRoute = pathname.startsWith("/cart");
   const isCheckoutRoute = pathname.startsWith("/checkout");
   const isOrdersRoute = pathname.startsWith("/orders");
 
-  const isProtectedRoute = isShopRoute || isCartRoute || isCheckoutRoute || isOrdersRoute || isAdminRoute || isFarmRoute;
+  const isProtectedRoute = isCartRoute || isCheckoutRoute || isOrdersRoute || isAdminRoute || isFarmRoute;
 
   if (isProtectedRoute) {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -83,7 +82,6 @@ export const config = {
   matcher: [
     "/admin/:path*",
     "/farm/:path*",
-    "/shop/:path*",
     "/cart",
     "/checkout",
     "/orders/:path*",
