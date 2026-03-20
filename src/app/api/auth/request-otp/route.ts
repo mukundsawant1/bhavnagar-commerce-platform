@@ -41,18 +41,15 @@ export async function POST(request: Request) {
     setOtp(normalizedEmail, otp, expiresAt);
 
     if (!process.env.RESEND_API_KEY) {
-      const fallbackMessage =
-        process.env.NODE_ENV === "production"
-          ? "OTP delivery service is not configured. Please contact support."
-          : `OTP generated in development mode: ${otp}. Use this code to complete verification.`;
-
-      console.warn("RESEND_API_KEY is not configured for OTP email delivery.");
-      console.info(`Development OTP code for ${normalizedEmail}: ${otp}`);
-
-      return NextResponse.json({
-        success: true,
-        message: fallbackMessage,
-      });
+      console.error("RESEND_API_KEY is not configured for OTP email delivery.");
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            "OTP delivery service is not configured. Set RESEND_API_KEY, RESEND_FROM_NAME, and RESEND_FROM_EMAIL in .env.local.",
+        },
+        { status: 500 },
+      );
     }
 
     const senderName = process.env.RESEND_FROM_NAME ?? "Bhavnagar Commerce";

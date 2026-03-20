@@ -101,6 +101,8 @@ If a non-farm-owner user opens `/farm`, middleware redirects to `/account`.
    - For professional Gmail usage, set:
      - `RESEND_FROM_NAME="Bhavnagar Commerce"`
      - `RESEND_FROM_EMAIL="your-company@gmail.com"` (or verified domain).
+
+> **Important**: OTP flow requires `RESEND_API_KEY` to be set. If missing, the endpoint returns error and OTP is NOT shown on UI.
 5. User enters OTP and verifies via `POST /api/auth/verify-otp`.
 6. Successful OTP enables Google sign-in flow.
 
