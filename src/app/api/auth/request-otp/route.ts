@@ -1,13 +1,17 @@
 import { NextResponse } from "next/server";
-import { setOtp } from "@/lib/auth/otp-store";
+import { createServerClient } from "@supabase/ssr";
 import { enforceRateLimit } from "@/lib/rate-limit";
-import { getResendClient } from "@/lib/notifications/email";
+import { sendOTPEmail } from "@/lib/email";
 
 const isValidGmail = (email: string) => /^[^\s@]+@gmail\.com$/i.test(email.trim());
 
 export async function POST(request: Request) {
   try {
     const { email } = (await request.json()) as { email?: string };
+
+    if (!email || !isValidGmail(email)) {
+      return NextResponse.json({ error: "Valid Gmail address is required to request OTP." }, { status: 400 });
+    }
 
     const ip =
       request.headers.get("x-real-ip") ||
@@ -26,58 +30,54 @@ export async function POST(request: Request) {
       );
     }
 
-    if (!email || !isValidGmail(email)) {
+    if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
       return NextResponse.json(
-        { error: "Valid Gmail address is required to request OTP." },
-        { status: 400 },
+        { error: "EMAIL_USER and EMAIL_PASS must be configured for email delivery." },
+        { status: 500 },
       );
     }
 
     const normalizedEmail = email.trim().toLowerCase();
-
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    const expiresAt = Date.now() + 10 * 60 * 1000;
+    const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString();
 
-    setOtp(normalizedEmail, otp, expiresAt);
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY;
 
-    if (!process.env.RESEND_API_KEY) {
-      console.error("RESEND_API_KEY is not configured for OTP email delivery.");
-      return NextResponse.json(
-        {
-          success: false,
-          error:
-            "OTP delivery service is not configured. Set RESEND_API_KEY, RESEND_FROM_NAME, and RESEND_FROM_EMAIL in .env.local.",
-        },
-        { status: 500 },
-      );
+    if (!supabaseUrl || !supabaseAnonKey) {
+      return NextResponse.json({ error: "Supabase configuration is missing." }, { status: 500 });
     }
 
-    const senderName = process.env.RESEND_FROM_NAME ?? "Bhavnagar Commerce";
-    const senderEmail = process.env.RESEND_FROM_EMAIL ?? "no-reply@bhavnagar.com";
+    const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
+      cookies: {
+        getAll: () => [],
+        setAll: () => {},
+      },
+    });
+
+    const { error: insertError } = await supabase.from("otps").insert([
+      {
+        email: normalizedEmail,
+        code: otp,
+        expires_at: expiresAt,
+        attempts: 0,
+        consumed: false,
+      },
+    ]);
+
+    if (insertError) {
+      console.error("OTP insert error", insertError);
+      return NextResponse.json({ error: "Unable to store OTP." }, { status: 500 });
+    }
 
     try {
-      const resend = getResendClient();
-      await resend.emails.send({
-        from: `${senderName} <${senderEmail}>`,
-        to: normalizedEmail,
-        subject: "Your login OTP for Bhavnagar Commerce",
-        text: `Your one-time passcode is ${otp}. It expires in 10 minutes. Do not share this code with anyone.`,
-      });
+      await sendOTPEmail(normalizedEmail, otp);
     } catch (emailError) {
       console.error("OTP email send failed", emailError);
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Unable to send OTP email at this time. Please try again later.",
-        },
-        { status: 500 },
-      );
+      return NextResponse.json({ error: "Unable to send OTP email. Check email configuration." }, { status: 500 });
     }
 
-    return NextResponse.json({
-      success: true,
-      message: "OTP sent if the email is registered. Check your inbox and spam folder.",
-    });
+    return NextResponse.json({ success: true, message: "OTP sent to your email. Please check inbox and spam." });
   } catch (err) {
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "Unable to generate OTP." },

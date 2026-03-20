@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
+import { createServerClient } from "@supabase/ssr";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
-import { deleteOtp, getOtp } from "@/lib/auth/otp-store";
 import { enforceRateLimit } from "@/lib/rate-limit";
 
 const isValidGmail = (email: string) => /^[^\s@]+@gmail\.com$/i.test(email.trim());
@@ -98,13 +98,58 @@ export async function POST(request: Request) {
       );
     }
 
-    const entry = getOtp(normalizedEmail);
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY;
 
-    if (!entry || entry.code !== code || entry.expiresAt < Date.now()) {
+    if (!supabaseUrl || !supabaseAnonKey) {
+      return NextResponse.json({ error: "Supabase configuration is missing." }, { status: 500 });
+    }
+
+    const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
+      cookies: {
+        getAll: () => [],
+        setAll: () => {},
+      },
+    });
+
+    const { data: rows, error: selectError } = await supabase
+      .from("otps")
+      .select("id,code,expires_at,attempts,consumed")
+      .eq("email", normalizedEmail)
+      .eq("consumed", false)
+      .order("created_at", { ascending: false })
+      .limit(1);
+
+    if (selectError) {
+      console.error("OTP select error", selectError);
+      return NextResponse.json({ error: "Unable to verify OTP." }, { status: 500 });
+    }
+
+    const entry = rows?.[0];
+
+    if (!entry || new Date(entry.expires_at).getTime() < Date.now()) {
       return NextResponse.json({ error: "OTP is invalid or expired." }, { status: 401 });
     }
 
-    deleteOtp(normalizedEmail);
+    if (entry.attempts >= 3) {
+      return NextResponse.json({ error: "Maximum OTP verification attempts reached." }, { status: 429 });
+    }
+
+    if (entry.code !== code) {
+      const { error: updateError } = await supabase
+        .from("otps")
+        .update({ attempts: entry.attempts + 1 })
+        .eq("id", entry.id);
+
+      if (updateError) {
+        console.error("OTP attempt update error", updateError);
+      }
+
+      return NextResponse.json({ error: "OTP is invalid." }, { status: 401 });
+    }
+
+    // mark consumed
+    await supabase.from("otps").update({ consumed: true }).eq("id", entry.id);
 
     const result = await ensureUserExists({
       email: normalizedEmail,
