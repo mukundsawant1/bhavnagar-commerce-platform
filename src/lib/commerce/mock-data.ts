@@ -8,9 +8,11 @@ export type ProduceListing = {
   availableKg: number;
   farmName: string;
   location: string;
-  photoHint: string;
+  photoHint?: string;
   qualityGrade: string;
   status: "available" | "low_stock" | "unavailable";
+  imageUrl?: string;
+  description?: string;
 };
 
 export type PurchaseOrder = {

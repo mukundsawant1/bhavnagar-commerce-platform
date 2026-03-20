@@ -2,6 +2,7 @@ import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { farmPartners, produceCatalog } from "@/lib/commerce/mock-data";
 import { decompressOrders } from "@/lib/compression";
 import OrderTable from "@/components/admin/order-table";
+import ProductUpload from "@/components/admin/product-upload";
 import type { OrderRecord } from "@/lib/types";
 import ProductSettingsPanel from "@/components/product-settings/product-settings-panel";
 
@@ -54,6 +55,10 @@ export default async function AdminPage() {
           />
         </>
       )}
+
+      <div className="mt-6">
+        <ProductUpload />
+      </div>
 
       <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
         <h2 className="text-lg font-semibold">Shareable Report</h2>

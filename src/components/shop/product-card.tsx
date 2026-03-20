@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useState } from "react";
 import { useToast } from "@/components/ui/toast";
 import { useCart } from "@/components/cart/cart-store";
@@ -44,7 +45,19 @@ export default function ProductCard({ product, addLabel, askLabel }: ProductCard
 
   return (
     <article className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:shadow-lg">
-      <div className="h-44 bg-gradient-to-br from-teal-50 via-sky-50 to-cyan-100" />
+      {product.imageUrl ? (
+        <div className="relative h-44 w-full bg-slate-100">
+          <Image
+            src={product.imageUrl}
+            alt={product.name}
+            fill
+            className="object-cover"
+            sizes="(max-width: 768px) 100vw, 25vw"
+          />
+        </div>
+      ) : (
+        <div className="h-44 bg-gradient-to-br from-teal-50 via-sky-50 to-cyan-100" />
+      )}
       <div className="p-4">
         <div className="flex items-start justify-between gap-2">
           <p className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-slate-600">
@@ -63,11 +76,12 @@ export default function ProductCard({ product, addLabel, askLabel }: ProductCard
           </p>
         </div>
         <h2 className="mt-3 line-clamp-2 text-base font-bold">{product.name}</h2>
+        {product.description ? <p className="mt-1 text-xs text-slate-700">{product.description}</p> : null}
         <p className="mt-1 text-xs text-muted">Listing: {product.id}</p>
         <p className="mt-2 text-sm text-slate-700">
           Farm: {product.farmName} ({product.location})
         </p>
-        <p className="mt-1 text-xs text-muted">Photo: {product.photoHint}</p>
+        {product.photoHint ? <p className="mt-1 text-xs text-muted">Photo: {product.photoHint}</p> : null}
         <p className="mt-2 text-xs text-slate-600">Quality Grade: {product.qualityGrade}</p>
         <div className="mt-2 rounded-md bg-slate-50 px-2 py-1 text-xs text-slate-700">
           {minBulk > 0 ? <span>Min bulk: {minBulkDisplay} {product.unit} | </span> : null}
