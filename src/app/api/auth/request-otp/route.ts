@@ -55,10 +55,13 @@ export async function POST(request: Request) {
       });
     }
 
+    const senderName = process.env.RESEND_FROM_NAME ?? "Bhavnagar Commerce";
+    const senderEmail = process.env.RESEND_FROM_EMAIL ?? "no-reply@bhavnagar.com";
+
     try {
       const resend = getResendClient();
       await resend.emails.send({
-        from: "no-reply@bhavnagar.com",
+        from: `${senderName} <${senderEmail}>`,
         to: normalizedEmail,
         subject: "Your login OTP for Bhavnagar Commerce",
         text: `Your one-time passcode is ${otp}. It expires in 10 minutes. Do not share this code with anyone.`,

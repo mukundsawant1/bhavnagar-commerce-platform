@@ -90,6 +90,26 @@ If a non-farm-owner user opens `/farm`, middleware redirects to `/account`.
 - Session check: middleware validates user for `/admin/*` and `/farm/*` routes.
 - Authorization check: middleware reads `profiles.role` and allows `admin` for `/admin` and `farm_owner` for `/farm`.
 
+### OTP email flow (Gmail-style sender)
+
+1. User enters Gmail address in `/account` and requests OTP.
+2. App calls `POST /api/auth/request-otp`.
+3. OTP is generated server-side and stored temporarily in the backend memory store (`src/lib/auth/otp-store.ts`).
+4. Email is sent via Resend:
+   - `from` address is configurable with `RESEND_FROM_NAME` and `RESEND_FROM_EMAIL`.
+   - defaults: `Bhavnagar Commerce <no-reply@bhavnagar.com>`.
+   - For professional Gmail usage, set:
+     - `RESEND_FROM_NAME="Bhavnagar Commerce"`
+     - `RESEND_FROM_EMAIL="your-company@gmail.com"` (or verified domain).
+5. User enters OTP and verifies via `POST /api/auth/verify-otp`.
+6. Successful OTP enables Google sign-in flow.
+
+### Required env vars for OTP email
+
+- `RESEND_API_KEY`: API key from Resend (mandatory for production email).
+- `RESEND_FROM_NAME`: friendly sender name (e.g. `Bhavnagar Commerce`).
+- `RESEND_FROM_EMAIL`: sender email (e.g. `your-company@gmail.com`).
+
 ## Payment & Order Tracking Flow
 
 ### Order creation (buyer)
