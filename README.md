@@ -1,17 +1,22 @@
 # Bhavnagar Web Application
 
-Professional e-commerce foundation built with Next.js App Router, Supabase, Stripe, and Resend. This repository is structured for fast page delivery, secure role-based admin access, payment processing, and operational notifications.
+Bulk fruits and vegetables marketplace built with Next.js App Router, Supabase, Stripe, and Resend. This repository is structured for buyer ordering, admin allocation, farm-owner stock updates, and delivery date coordination.
 
 ## Documentation Index
 
 - Technical architecture and implementation: `README.md`
-- Application usage guide (customer/admin/operator): `docs/APPLICATION_USER_GUIDE.md`
+- Application usage guide (buyer/admin/farm-owner): `docs/APPLICATION_USER_GUIDE.md`
+
+## Repository
+
+- GitHub: `https://github.com/mukundsawant1/bhavnagar-commerce-platform`
+- Default branch: `master`
 
 ## Executive Summary
 
 - Runtime: Next.js 16 (App Router, TypeScript, Tailwind CSS)
 - Data platform: Supabase (PostgreSQL + Auth)
-- Payments: Stripe Checkout + signed webhook handling
+- Payments: Stripe Checkout + signed webhook handling (optional; current flow uses admin/farm payment tracking instead of mandatory Stripe payments)
 - Notifications: Resend transactional email integration
 - Deployment target: Vercel (Hobby-compatible)
 
@@ -19,7 +24,7 @@ Professional e-commerce foundation built with Next.js App Router, Supabase, Stri
 
 ```mermaid
 flowchart LR
-	U[Customer / Admin Browser] --> N[Next.js App Router UI]
+	U[Buyer / Admin / Farm Browser] --> N[Next.js App Router UI]
 	N --> M[Next Middleware]
 	M -->|validate session| SA[Supabase Auth]
 	M -->|check role in profiles| DB[(Supabase PostgreSQL)]
@@ -39,10 +44,10 @@ flowchart LR
 | Requirement | Implementation |
 | --- | --- |
 | Fast and responsive web application | Next.js App Router SSR/SSG model with Tailwind responsive UI |
-| Secure login and role-based access | Supabase Auth session validation + `/admin` role guard in `middleware.ts` |
-| Product and order management foundation | Route and API scaffolds for shop/cart/checkout/admin |
-| Payment processing | Stripe checkout session API (`/api/checkout`) |
-| Payment status updates | Stripe signed webhook endpoint (`/api/webhooks/stripe`) |
+| Gmail-based login and role-based access | Supabase Auth + Gmail-only UI validation + `/admin` and `/farm` role guards in `middleware.ts` |
+| Product and order management foundation | Route and API scaffolds for shop/cart/checkout/admin/farm, with cart persistence and Supabase-backed order creation |
+| Payment processing | Optional Stripe checkout session API (`/api/checkout`) + admin/farm payment tracking (via `/api/orders` and metadata) |
+| Payment status updates | Admin/farm can mark payment received, and webhook updates `orders.status` when Stripe is used |
 | Email notifications | Resend integration triggered on payment confirmation |
 | Analytics and reporting | Admin dashboard with sales/product performance scaffolds |
 | Low-cost hosting | Vercel-ready deployment model |
@@ -55,10 +60,11 @@ flowchart LR
 	- `/cart`
 	- `/checkout`
 	- `/account`
-	- `/admin` (protected)
+	- `/admin` (protected, admin role)
+	- `/farm` (protected, farm_owner role)
 - Middleware:
 	- Supabase session validation
-	- Admin role check using `profiles.role`
+	- Admin and farm-owner role checks using `profiles.role`
 - APIs:
 	- `POST /api/checkout`
 	- `POST /api/webhooks/stripe`
@@ -80,6 +86,18 @@ flowchart LR
 
 This front-end is optimized to feel familiar to users of top ecommerce platforms while remaining fully custom and brandable.
 
+## Latest Updates (March 2026)
+
+- Brand updated from `Jadiyo` to `Bhavnagar` across UI, API defaults, env template, migration comments, and documentation.
+- Order metadata is now stored compressed (gzip + base64) to reduce Supabase storage usage; the app transparently decompresses on read.
+- Professional ecommerce UI refresh:
+	- sticky top navigation and global search shell
+	- polished homepage hero and conversion sections
+	- upgraded product cards with ratings, badges, and actions
+	- structured cart and checkout layouts with side summaries
+	- refined account/admin visual design language
+- Project published to GitHub and ready for Vercel import.
+
 ## Environment Configuration
 
 Create `.env.local` from `.env.example`:
@@ -87,6 +105,8 @@ Create `.env.local` from `.env.example`:
 ```bash
 NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_ANON_KEY=
+# (optional) Some Supabase projects provide a publishable default key instead of anon key. The app will use this if ANON is missing.
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY=
 SUPABASE_SERVICE_ROLE_KEY=
 
 STRIPE_SECRET_KEY=
@@ -99,13 +119,34 @@ RESEND_FROM_EMAIL="Bhavnagar <onboarding@resend.dev>"
 NEXT_PUBLIC_APP_URL=http://localhost:3000
 ```
 
+### Common issue: Supabase client initialization error
+If you encounter an error like:
+
+> `@supabase/ssr: Your project's URL and API key are required to create a Supabase client!`
+
+Then one of the required environment variables is missing or not loaded. Make sure you have correctly set:
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY` OR `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY`
+
+And restart the dev server after updating `.env.local`.
+
+### Verify Supabase connectivity
+You can run a quick health check before starting the app:
+
+```bash
+npm run check:supabase
+```
+
+This validates the env variables and confirms the app can query the Supabase database.
+
+
 ## Database Expectations
 
 This implementation expects these tables/columns in Supabase:
 
 - `profiles`
 	- `id` (uuid, matches auth user id)
-	- `role` (text, values like `admin` or `customer`)
+	- `role` (text, values: `buyer`, `admin`, `farm_owner`)
 - `orders`
 	- `id`
 	- `stripe_session_id` (text)
@@ -140,7 +181,7 @@ For complete feature usage instructions, see `docs/APPLICATION_USER_GUIDE.md`.
 
 Includes:
 
-- Customer journey (shop, account, checkout)
+- Buyer journey (shop, account, checkout)
 - Admin journey (role-based access, dashboard usage)
 - Stripe checkout and webhook testing flow
 - Supabase role and table expectations
@@ -167,22 +208,24 @@ Set `STRIPE_WEBHOOK_SECRET` from Stripe CLI output.
 
 ## Deployment on Vercel
 
-1. Import repository in Vercel.
-2. Configure all environment variables listed above.
-3. Ensure Supabase URL/keys and Stripe webhook are set for production.
-4. Deploy from main branch.
+1. Import repository `mukundsawant1/bhavnagar-commerce-platform` in Vercel.
+2. Configure all environment variables listed above for Production.
+3. Set `NEXT_PUBLIC_APP_URL` to your Vercel production domain.
+4. Ensure Supabase Auth Site URL + redirect URLs include the production domain.
+5. Configure Stripe webhook endpoint: `/api/webhooks/stripe` on production domain.
+6. Deploy from `master` branch (or switch to `main` and update Vercel settings accordingly).
 
 ## Known Implementation Notes
 
 - Admin authorization is enforced through Supabase auth + `profiles.role` lookup.
-- Account page now includes live Supabase sign-in/sign-up and sign-out UI.
+- Account page includes live Supabase sign-in/sign-up/sign-out UI and Gmail-first onboarding.
 - Analytics currently use scaffold data and should be switched to SQL aggregates.
 - Webhook order update assumes `orders.stripe_session_id` is populated when checkout starts.
 
 ## Recommended Next Enhancements
 
-1. Replace mock product/cart data with Supabase-backed entities.
-2. Add password reset and email verification UX on the account page.
-3. Store checkout metadata so webhook can map sessions to concrete orders/users.
-4. Add dashboards driven by real daily/monthly aggregate queries.
+1. Replace mock produce/order/farm data with Supabase-backed entities.
+2. Auto-sync `auth.user_metadata.role` to `profiles.role` through a secure SQL trigger.
+3. Store checkout metadata so webhook can map sessions to concrete buyer orders.
+4. Add live admin queue actions and farm stock update forms backed by SQL mutations.
 

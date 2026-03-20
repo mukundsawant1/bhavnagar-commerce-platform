@@ -1,0 +1,95 @@
+"use client";
+
+import Link from "next/link";
+import { useCart } from "@/components/cart/cart-store";
+import LanguageSelector from "@/components/i18n/language-selector";
+import type { AppDictionary, AppLanguage } from "@/lib/i18n/dictionaries";
+
+type HeaderProps = {
+  language: AppLanguage;
+  dictionary: AppDictionary;
+};
+
+export default function Header({ language, dictionary }: HeaderProps) {
+  const { totalQuantity } = useCart();
+  const shouldAnimate = totalQuantity > 0;
+
+  return (
+    <header className="sticky top-0 z-50">
+      <div className="bg-brand-blue text-white">
+        <div className="shell-container grid items-center gap-3 py-3 md:grid-cols-[220px_1fr_320px]">
+          <Link href="/" className="inline-flex items-center gap-2 rounded-md border border-transparent px-2 py-1 hover:border-white/40">
+            <span className="text-2xl font-black tracking-tight">Bhavnagar</span>
+            <span className="mt-2 text-xs font-semibold text-teal-200">commerce</span>
+          </Link>
+
+          <div className="hidden md:flex min-w-0">
+            <div className="flex w-full min-w-0 overflow-hidden rounded-lg border border-brand-blue-soft bg-white shadow-sm">
+              <span className="bg-slate-100 px-3 py-2 text-sm text-slate-600">All</span>
+              <input
+                aria-label="Search products"
+                placeholder={dictionary.layout.searchPlaceholder}
+                className="w-full px-3 py-2 text-sm text-slate-900 outline-none"
+              />
+              <button className="bg-teal-500 px-4 text-sm font-semibold text-slate-50 hover:bg-teal-400">{dictionary.layout.searchButton}</button>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center justify-start gap-4 text-xs sm:justify-end sm:text-sm">
+            <Link href="/account" className="rounded-md border border-transparent px-2 py-1 hover:border-white/40">
+              <span className="block text-[11px] text-slate-300">{dictionary.layout.signInGreeting}</span>
+              <span className="font-semibold">{dictionary.layout.account}</span>
+            </Link>
+            <Link href="/orders" className="rounded-md border border-transparent px-2 py-1 hover:border-white/40">
+              <span className="block text-[11px] text-slate-300">{dictionary.layout.returns}</span>
+              <span className="font-semibold">{dictionary.layout.orders}</span>
+            </Link>
+            <Link href="/cart" className="relative rounded-md border border-transparent px-2 py-1 hover:border-white/40">
+              <span className="block text-[11px] text-slate-300">{dictionary.layout.your}</span>
+              <span className="flex items-center gap-2 font-semibold">
+                {dictionary.layout.cart}
+                {totalQuantity > 0 ? (
+                  <span
+                    key={totalQuantity}
+                    className={`rounded-full bg-teal-500 px-2 py-0.5 text-[10px] font-bold text-slate-50 transition-transform duration-200 ${
+                      shouldAnimate ? "animate-pulse" : ""
+                    }`}
+                  >
+                    {totalQuantity}
+                  </span>
+                ) : null}
+              </span>
+            </Link>
+            <LanguageSelector currentLanguage={language} label={dictionary.layout.language} />
+          </div>
+        </div>
+      </div>
+
+      <div className="bg-brand-blue-soft text-white">
+        <nav className="shell-container flex flex-wrap items-center gap-4 py-2 text-sm">
+          <Link href="/shop" className="rounded-md px-2 py-1 hover:bg-white/10">
+            {dictionary.layout.nav.bulkShop}
+          </Link>
+          <Link href="/shop" className="rounded-md px-2 py-1 hover:bg-white/10">
+            {dictionary.layout.nav.vegetables}
+          </Link>
+          <Link href="/shop" className="rounded-md px-2 py-1 hover:bg-white/10">
+            {dictionary.layout.nav.fruits}
+          </Link>
+          <Link href="/orders" className="rounded-md px-2 py-1 hover:bg-white/10">
+            {dictionary.layout.nav.buyerOrders}
+          </Link>
+          <Link href="/admin" className="rounded-md px-2 py-1 hover:bg-white/10">
+            {dictionary.layout.nav.admin}
+          </Link>
+          <Link href="/farm" className="rounded-md px-2 py-1 hover:bg-white/10">
+            {dictionary.layout.nav.farm}
+          </Link>
+          <span className="ml-auto rounded-md bg-emerald-500/20 px-3 py-1 text-xs font-semibold text-emerald-200">
+            {dictionary.layout.stockBanner}
+          </span>
+        </nav>
+      </div>
+    </header>
+  );
+}

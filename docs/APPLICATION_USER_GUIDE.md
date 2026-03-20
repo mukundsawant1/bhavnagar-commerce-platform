@@ -1,20 +1,21 @@
 # Bhavnagar Application User Guide
 
-This document explains how to use the Bhavnagar web application as a customer, administrator, and operator.
+This document explains how to use the Bhavnagar web application as a buyer, administrator, and farm owner.
 
 ## Who Should Read This
 
-- Customers: browse products, manage account, and complete checkout.
-- Admin users: access the protected admin dashboard and review analytics.
-- Operators/developers: configure environment, run webhooks, and validate flows.
+- Buyers: place bulk orders for fruits and vegetables.
+- Admin users: validate stock with farms and confirm final delivery timelines.
+- Farm owners: update produce availability, stock levels, and dispatch dates.
 
 ## Feature Overview
 
 - Shop browsing: `/shop`
 - Cart page scaffold: `/cart`
 - Checkout page scaffold: `/checkout`
-- Account authentication: `/account` (Supabase sign-in/sign-up/sign-out)
+- Account authentication: `/account` (Gmail-first sign-in/sign-up/sign-out + Google OAuth)
 - Admin dashboard: `/admin` (requires authenticated admin role)
+- Farm dashboard: `/farm` (requires authenticated farm_owner role)
 - Checkout API: `POST /api/checkout`
 - Stripe webhook API: `POST /api/webhooks/stripe`
 - Email notification integration: Resend (payment confirmation)
@@ -45,34 +46,70 @@ npm run dev
 ```
 6. Open `http://localhost:3000`.
 
-## How Customers Use the App
+## How Buyers Use the App
 
-1. Open `/shop` and view products.
-2. Open `/account` and create account using email/password.
-3. Sign in from `/account`.
-4. Open `/checkout` and integrate your front-end form to call `POST /api/checkout`.
-5. Complete Stripe checkout using test card flow.
-6. After payment success, user is redirected to `/account?checkout=success`.
+1. Open `/shop` and add bulk produce items to your cart using the **Add Bulk Request** button.
+2. The header shows a running badge count of cart items, so you can always see how many units are in your cart.
+3. Open `/cart` to verify quantities, update/remove items (toast notifications confirm actions), and then proceed to checkout.
+4. Open `/account` and create an account using Gmail + password, or continue with Google.
+5. Sign in from `/account`.
+6. On `/checkout`, review your order, fill in the buyer/delivery details, and submit your order request.
+7. The order is routed to the farm owner for acceptance and delivery scheduling. You can monitor order progress under `/orders`.
 
 ## How Admin Users Use the App
 
 1. Sign in at `/account`.
-2. Ensure user has `admin` role in `profiles` table.
+2. Ensure the user has the `admin` role in the `profiles` table.
 3. Open `/admin`.
-4. Review KPI cards, daily trend chart, and product performance list.
+4. Review incoming buyer orders.
+5. Optionally adjust the farm-assigned delivery date or override farm details.
+6. Once payment is received by your team, mark the order as **Payment received**.
+7. Use the shareable report panel to copy summary stats for other team members.
+
+> Note: Minimum bulk quantities configured in the product settings are stored locally in your browser and affect how buyers can place orders.
 
 If a non-admin user opens `/admin`, middleware redirects to `/account`.
+
+## How Farm Owners Use the App
+
+1. Sign in at `/account` using Gmail.
+2. Ensure `profiles.role = 'farm_owner'` for current user.
+3. Open `/farm`.
+4. Review orders assigned to your farm.
+5. Accept or reject each order; rejecting allows you to add rejection notes.
+6. Set or update the expected delivery date for accepted orders.
+8. Optionally, adjust the minimum bulk purchase quantities for your products (stored in your browser).
+
+If a non-farm-owner user opens `/farm`, middleware redirects to `/account`.
 
 ## Authentication Flow (Supabase)
 
 - Sign up: handled in account auth panel.
 - Sign in: handled in account auth panel.
 - Sign out: handled in account auth panel.
-- Session check: middleware validates user for `/admin/*` routes.
-- Authorization check: middleware reads `profiles.role` and allows only `admin`.
+- Session check: middleware validates user for `/admin/*` and `/farm/*` routes.
+- Authorization check: middleware reads `profiles.role` and allows `admin` for `/admin` and `farm_owner` for `/farm`.
 
-## Payment Flow (Stripe)
+## Payment & Order Tracking Flow
 
+### Order creation (buyer)
+1. Buyer submits an order on `/checkout` (no payment required).
+2. The system creates an `orders` row in Supabase with `status = farm_pending` and assigns it to the first farm found in the order items.
+
+### Farm approval and delivery scheduling
+1. Farm owners see assigned orders on `/farm`.
+2. Farm owners can either **Accept** or **Reject** each order.
+   - Accepting sets the order status to `farm_accepted`.
+   - Rejecting sets the order status to `farm_rejected` and adds rejection notes.
+3. Farm owners can also set or update the planned delivery date.
+
+### Admin override and reporting
+1. Admins see all orders on `/admin` and can override farm values.
+2. Admins can edit the delivery date set by the farm and mark payment as received.
+3. Admins also have a dedicated product settings panel for adjusting minimum bulk order quantities per product.
+
+### Optional Stripe integration
+If you want to accept card payments, the Stripe checkout flow is still available:
 1. Frontend calls `POST /api/checkout` with line items.
 2. API creates Stripe checkout session and returns `checkoutUrl`.
 3. User completes payment on Stripe hosted checkout.
@@ -94,6 +131,7 @@ stripe listen --forward-to localhost:3000/api/webhooks/stripe
 ### `profiles`
 - one row per authenticated user
 - includes `role` for access control
+- expected roles: `buyer`, `admin`, `farm_owner`
 
 ### `orders`
 - stores payment/order record
@@ -106,6 +144,26 @@ stripe listen --forward-to localhost:3000/api/webhooks/stripe
 - Verify sign-in is successful.
 - Verify `profiles.role = 'admin'` for current user.
 - Verify Supabase env values are configured.
+
+### Supabase client initialization error (missing URL or key)
+If you see an error like:
+
+> `@supabase/ssr: Your project's URL and API key are required to create a Supabase client!`
+
+Then your environment is missing one of:
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY` or `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY`
+
+Make sure your `.env.local` includes these values and that the app is restarted after changes.
+
+### Verify Supabase connection
+Run the bundled health check script to confirm the backend can reach your Supabase database:
+
+```bash
+npm run check:supabase
+```
+
+If Supabase env vars are missing, the script will warn and exit cleanly. When configured, it validates the required env vars and performs a small query against the `profiles` table.
 
 ### Checkout API returns error
 - Ensure `STRIPE_SECRET_KEY` is configured.
@@ -124,14 +182,26 @@ stripe listen --forward-to localhost:3000/api/webhooks/stripe
 - `npm run build` passes.
 - Account signup/signin/signout works.
 - Admin user can open `/admin`.
+- Farm owner can open `/farm`.
 - Non-admin user is blocked from `/admin`.
+- Non-farm-owner user is blocked from `/farm`.
 - Stripe webhook reaches `/api/webhooks/stripe`.
 - Order status updates in Supabase.
 - Payment confirmation email is sent.
 
 ## Current Scope and Limitations
 
-- Cart and checkout UI are scaffold-level and require product/cart persistence wiring.
+- Cart persistence is implemented using localStorage and supports quantity updates and item removal.
+- Order creation captures cart line items and buyer details in Supabase order metadata (compressed on save to reduce storage footprint).
+- Compressed metadata uses gzip + base64 and is transparently decompressed by the app when orders are retrieved.
+- Large assets (images, file blobs) are not stored in order metadata; store images externally (e.g., Supabase Storage / S3 / CDN) and reference them by URL.
 - Admin analytics are currently mock data visualizations.
-- Full order creation prior to webhook confirmation should be added for production-grade reconciliation.
+- Stripe checkout is still optional; the app can function with the admin/farm payment tracking workflow.
+
+## Developer Notes (Compression & Metadata)
+
+- Order metadata is compressed using gzip + base64 before being written to Supabase.
+- Decompression is handled automatically on the server using `src/lib/compression.ts` so UI components can always work with plain objects.
+- If you need to inspect raw metadata in the Supabase dashboard, look for the `metadata` field containing `{ "__compressed": true, ... }`.
+- Avoid storing large binary assets in metadata; instead store media URLs and keep the metadata structure lightweight.
 

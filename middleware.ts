@@ -10,9 +10,20 @@ export async function middleware(request: NextRequest) {
     },
   });
 
-  if (pathname.startsWith("/admin")) {
+  const isAdminRoute = pathname.startsWith("/admin");
+  const isFarmRoute = pathname.startsWith("/farm");
+  const isShopRoute = pathname.startsWith("/shop");
+  const isCartRoute = pathname.startsWith("/cart");
+  const isCheckoutRoute = pathname.startsWith("/checkout");
+  const isOrdersRoute = pathname.startsWith("/orders");
+
+  const isProtectedRoute = isShopRoute || isCartRoute || isCheckoutRoute || isOrdersRoute || isAdminRoute || isFarmRoute;
+
+  if (isProtectedRoute) {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    const supabaseAnonKey =
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ??
+      process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY;
 
     if (!supabaseUrl || !supabaseAnonKey) {
       return NextResponse.redirect(new URL("/account?error=config", request.url));
@@ -46,17 +57,22 @@ export async function middleware(request: NextRequest) {
     } = await supabase.auth.getUser();
 
     if (!user) {
-      return NextResponse.redirect(new URL("/account?next=/admin", request.url));
+      const nextPath = isAdminRoute ? "/admin" : isFarmRoute ? "/farm" : pathname;
+      return NextResponse.redirect(new URL(`/account?next=${encodeURIComponent(nextPath)}`, request.url));
     }
 
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("role")
-      .eq("id", user.id)
-      .single();
+    if (isAdminRoute || isFarmRoute) {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", user.id)
+        .single();
 
-    if (profile?.role !== "admin") {
-      return NextResponse.redirect(new URL("/account", request.url));
+      const expectedRole = isAdminRoute ? "admin" : "farm_owner";
+
+      if (profile?.role !== expectedRole) {
+        return NextResponse.redirect(new URL("/account", request.url));
+      }
     }
   }
 
@@ -64,5 +80,13 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/admin/:path*"],
+  matcher: [
+    "/admin/:path*",
+    "/farm/:path*",
+    "/shop/:path*",
+    "/cart",
+    "/checkout",
+    "/orders/:path*",
+    "/orders",
+  ],
 };

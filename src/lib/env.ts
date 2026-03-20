@@ -8,7 +8,11 @@ export function getPublicEnv() {
   return {
     appUrl: process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000",
     supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL ?? "",
-    supabaseAnonKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "",
+    // Some Supabase projects use a publishable default key instead of a dedicated ANON key.
+    supabaseAnonKey:
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ??
+      process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY ??
+      "",
     stripePublishableKey: process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? "",
   };
 }

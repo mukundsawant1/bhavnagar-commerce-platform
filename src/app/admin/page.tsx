@@ -1,64 +1,107 @@
-import { productPerformance, salesSeries } from "@/lib/analytics/mock";
+import { getSupabaseAdminClient } from "@/lib/supabase/admin";
+import { farmPartners, produceCatalog } from "@/lib/commerce/mock-data";
+import { decompressOrders } from "@/lib/compression";
+import OrderTable from "@/components/admin/order-table";
+import type { OrderRecord } from "@/lib/types";
+import ProductSettingsPanel from "@/components/product-settings/product-settings-panel";
 
-export default function AdminPage() {
-  const maxSales = Math.max(...salesSeries.map((item) => item.total));
+type SupabaseOrderRow = Omit<OrderRecord, "metadata"> & { metadata?: unknown };
+
+export default async function AdminPage() {
+  let safeOrders: OrderRecord[] = [];
+  let loadError: string | null = null;
+
+  try {
+    const supabaseAdmin = getSupabaseAdminClient();
+    const { data: orders = [] } = await supabaseAdmin
+      .from("orders")
+      .select("id,user_id,status,amount,currency,metadata,created_at,updated_at")
+      .order("created_at", { ascending: false });
+
+    safeOrders = decompressOrders((orders ?? []) as SupabaseOrderRow[]);
+  } catch (err) {
+    loadError = err instanceof Error ? err.message : "Unable to load admin data.";
+  }
 
   return (
     <main className="shell-container space-y-4">
       <section className="rounded-2xl bg-white p-5 shadow-sm">
         <h1 className="text-3xl font-black tracking-tight">Admin Dashboard</h1>
         <p className="mt-2 text-sm text-muted">
-        Manage catalog, orders, and analytics from this protected route.
+          Review buyer orders, assign farms, and manage delivery commitments.
         </p>
       </section>
 
-      <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted">Daily Sales</h2>
-          <p className="mt-2 text-2xl font-bold">Rs. 1,13,050</p>
-          <p className="text-sm text-emerald-700">+8.2% vs yesterday</p>
+      {loadError ? (
+        <section className="rounded-2xl border border-rose-200 bg-rose-50 p-5 shadow-sm">
+          <h2 className="text-lg font-semibold text-rose-800">Configuration required</h2>
+          <p className="mt-2 text-sm text-rose-700">
+            {loadError}
+          </p>
+          <p className="mt-3 text-sm text-slate-700">
+            To use the admin dashboard you must set the Supabase service role key.
+            Add <code className="rounded bg-slate-100 px-1 py-0.5">SUPABASE_SERVICE_ROLE_KEY</code> to your environment and restart the dev server.
+          </p>
         </section>
-        <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted">Monthly Revenue</h2>
-          <p className="mt-2 text-2xl font-bold">Rs. 14,82,900</p>
-          <p className="text-sm text-emerald-700">+13.6% vs last month</p>
-        </section>
-        <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted">Orders Today</h2>
-          <p className="mt-2 text-2xl font-bold">184</p>
-          <p className="text-sm text-slate-600">27 pending fulfillment</p>
-        </section>
-      </div>
+      ) : (
+        <>
+          <OrderTable initialOrders={safeOrders} />
+
+          <ProductSettingsPanel
+            products={produceCatalog}
+            title="Product Ordering Controls"
+            subtitle="Set minimum bulk purchase quantities for each product. These values apply to both buyers and farm owners when ordering."
+          />
+        </>
+      )}
 
       <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <h2 className="text-lg font-semibold">Daily Sales Trend</h2>
-        <div className="mt-4 grid grid-cols-7 items-end gap-2">
-          {salesSeries.map((item) => (
-            <div key={item.day} className="flex flex-col items-center gap-2">
-              <div
-                className="w-full rounded-md bg-accent/80"
-                style={{ height: `${Math.round((item.total / maxSales) * 140)}px` }}
-                title={`Rs. ${item.total}`}
-              />
-              <span className="text-xs text-muted">{item.day}</span>
-            </div>
-          ))}
+        <h2 className="text-lg font-semibold">Shareable Report</h2>
+        <p className="mt-1 text-sm text-muted">Copy a summary report to share with other team members.</p>
+        <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <p className="text-sm font-semibold">Orders</p>
+            <p className="text-xs text-slate-600">Total orders: {safeOrders.length}</p>
+            <p className="text-xs text-slate-600">Value: Rs. {safeOrders.reduce((sum, order) => sum + (order.amount ?? 0), 0)}</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              const report = {
+                timestamp: new Date().toISOString(),
+                totalOrders: safeOrders.length,
+                totalValue: safeOrders.reduce((sum, order) => sum + (order.amount ?? 0), 0),
+              };
+
+              navigator.clipboard.writeText(JSON.stringify(report, null, 2));
+              alert("Report copied to clipboard. Share it with your team.");
+            }}
+            className="rounded-md bg-teal-500 px-4 py-2 text-sm font-semibold text-slate-50 hover:bg-teal-400"
+          >
+            Copy report
+          </button>
         </div>
       </section>
 
       <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <h2 className="text-lg font-semibold">Product Performance</h2>
+        <h2 className="text-lg font-semibold">Farm Partner Directory</h2>
         <ul className="mt-4 space-y-3">
-          {productPerformance.map((item) => (
-            <li key={item.name} className="flex items-center justify-between rounded-xl bg-slate-50 px-4 py-3">
-              <span className="text-sm font-medium">{item.name}</span>
-              <span className="text-sm text-muted">{item.sold} sold</span>
+          {farmPartners.map((farm) => (
+            <li key={farm.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-slate-50 px-4 py-3">
+              <div>
+                <p className="text-sm font-medium">{farm.name}</p>
+                <p className="text-xs text-muted">Owner: {farm.owner} | {farm.phone}</p>
+              </div>
+              <div className="text-right text-xs text-muted">
+                <p>{farm.location} | {farm.produceCount} listings</p>
+                <p>Reliability {farm.reliabilityScore}/5</p>
+              </div>
             </li>
           ))}
         </ul>
       </section>
       <div className="mt-4 text-sm text-muted">
-        Replace mock analytics with Supabase SQL aggregates for production reporting.
+        Workflow: Buyer places order, farm approves or rejects, and admin overrides/sets final delivery timeline.
       </div>
     </main>
   );
