@@ -2,6 +2,8 @@ import { produceCatalog } from "@/lib/commerce/mock-data";
 import { getServerI18n } from "@/lib/i18n/server";
 import ProductCard from "@/components/shop/product-card";
 
+export const revalidate = 60;
+
 export default async function ShopPage() {
   const { dictionary } = await getServerI18n();
 

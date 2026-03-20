@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { getServerI18n } from "@/lib/i18n/server";
-
+export const revalidate = 60;
 export default async function Home() {
   const { dictionary } = await getServerI18n();
 

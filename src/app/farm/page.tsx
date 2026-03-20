@@ -9,6 +9,8 @@ import type { OrderRecord } from "@/lib/types";
 
 type SupabaseOrderRow = Omit<OrderRecord, "metadata"> & { metadata?: unknown };
 
+export const revalidate = 60;
+
 export default async function FarmPage() {
   const { dictionary } = await getServerI18n();
 

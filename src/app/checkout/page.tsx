@@ -1,6 +1,8 @@
 import { getServerI18n } from "@/lib/i18n/server";
 import OrderSubmit from "@/components/checkout/order-submit";
 
+export const dynamic = "force-dynamic";
+
 export default async function CheckoutPage() {
   const { dictionary } = await getServerI18n();
 

@@ -1,7 +1,10 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
 import { useCart } from "@/components/cart/cart-store";
+import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import type { Session } from "@supabase/supabase-js";
 import LanguageSelector from "@/components/i18n/language-selector";
 import type { AppDictionary, AppLanguage } from "@/lib/i18n/dictionaries";
 
@@ -11,8 +14,37 @@ type HeaderProps = {
 };
 
 export default function Header({ language, dictionary }: HeaderProps) {
+  const supabase = useMemo(() => createSupabaseBrowserClient(), []);
+  const [userLoggedIn, setUserLoggedIn] = useState(false);
   const { totalQuantity } = useCart();
   const shouldAnimate = totalQuantity > 0;
+
+  useEffect(() => {
+    let mounted = true;
+    const getUser = async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (mounted) {
+        setUserLoggedIn(!!user);
+      }
+    };
+
+    void getUser();
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event: string, session: Session | null) => {
+      if (mounted) {
+        setUserLoggedIn(!!session?.user);
+      }
+    });
+
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
+  }, [supabase]);
 
   return (
     <header className="sticky top-0 z-50">
@@ -28,10 +60,20 @@ export default function Header({ language, dictionary }: HeaderProps) {
               <span className="bg-slate-100 px-3 py-2 text-sm text-slate-600">All</span>
               <input
                 aria-label="Search products"
-                placeholder={dictionary.layout.searchPlaceholder}
+                placeholder={
+                  userLoggedIn
+                    ? dictionary.layout.searchPlaceholder
+                    : "Sign in to search products"
+                }
                 className="w-full px-3 py-2 text-sm text-slate-900 outline-none"
+                disabled={!userLoggedIn}
               />
-              <button className="bg-teal-500 px-4 text-sm font-semibold text-slate-50 hover:bg-teal-400">{dictionary.layout.searchButton}</button>
+              <button
+                disabled={!userLoggedIn}
+                className="bg-teal-500 px-4 text-sm font-semibold text-slate-50 hover:bg-teal-400 disabled:opacity-60"
+              >
+                {dictionary.layout.searchButton}
+              </button>
             </div>
           </div>
 

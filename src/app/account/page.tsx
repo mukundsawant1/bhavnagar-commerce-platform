@@ -9,6 +9,8 @@ type AccountPageProps = {
   }>;
 };
 
+export const dynamic = "force-dynamic";
+
 export default async function AccountPage({ searchParams }: AccountPageProps) {
   const params = await searchParams;
   const { dictionary } = await getServerI18n();

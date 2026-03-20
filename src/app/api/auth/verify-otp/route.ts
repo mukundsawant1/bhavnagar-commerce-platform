@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { deleteOtp, getOtp } from "@/lib/auth/otp-store";
+import { enforceRateLimit } from "@/lib/rate-limit";
 
 const isValidGmail = (email: string) => /^[^\s@]+@gmail\.com$/i.test(email.trim());
 
@@ -80,6 +81,23 @@ export async function POST(request: Request) {
     }
 
     const normalizedEmail = email.trim().toLowerCase();
+    const ip =
+      request.headers.get("x-real-ip") ||
+      request.headers.get("x-forwarded-for") ||
+      "unknown";
+    const rateKey = `otp_verify:${normalizedEmail}:${ip}`;
+    const rate = await enforceRateLimit(rateKey);
+
+    if (!rate.allowed) {
+      return NextResponse.json(
+        {
+          error: rate.reason,
+          message: "Too many OTP verification attempts. Please wait before retrying.",
+        },
+        { status: 429 },
+      );
+    }
+
     const entry = getOtp(normalizedEmail);
 
     if (!entry || entry.code !== code || entry.expiresAt < Date.now()) {
