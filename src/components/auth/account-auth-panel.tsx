@@ -101,12 +101,12 @@ export default function AccountAuthPanel({ nextPath, copy }: AccountAuthPanelPro
       });
 
       const data = await res.json();
-      if (!res.ok) {
+      if (!res.ok || data?.success === false) {
         throw new Error(data?.error ?? copy.authFailed);
       }
 
       setOtpRequested(true);
-      setMessage(copy.otpSent);
+      setMessage(data?.message ?? copy.otpSent);
     } catch (caughtError) {
       setError(caughtError instanceof Error ? caughtError.message : copy.authFailed);
     } finally {
