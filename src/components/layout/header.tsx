@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
+import { useRouter } from "next/navigation";
 import { useCart } from "@/components/cart/cart-store";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import type { Session } from "@supabase/supabase-js";
@@ -17,8 +18,13 @@ export default function Header({ language, dictionary }: HeaderProps) {
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
   const [userLoggedIn, setUserLoggedIn] = useState(false);
   const [userName, setUserName] = useState<string | null>(null);
+  const [userRole, setUserRole] = useState<string>("buyer");
   const { totalQuantity } = useCart();
   const shouldAnimate = totalQuantity > 0;
+  const router = useRouter();
+  const logoutTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const IDLE_LOGOUT_MS = 15 * 60 * 1000; // 15 minutes
 
   useEffect(() => {
     let mounted = true;
@@ -34,15 +40,19 @@ export default function Header({ language, dictionary }: HeaderProps) {
       if (user) {
         const { data: profile } = await supabase
           .from("profiles")
-          .select("full_name")
+          .select("full_name, role")
           .eq("id", user.id)
           .single();
 
         if (mounted) {
           setUserName(profile?.full_name ?? user.user_metadata?.full_name ?? null);
+          setUserRole((profile?.role as string) ?? (user.user_metadata?.role as string) ?? "buyer");
         }
       } else {
-        if (mounted) setUserName(null);
+        if (mounted) {
+          setUserName(null);
+          setUserRole("buyer");
+        }
       }
     };
 
@@ -54,13 +64,49 @@ export default function Header({ language, dictionary }: HeaderProps) {
       if (mounted) {
         setUserLoggedIn(!!session?.user);
       }
+      if (event === "SIGNED_OUT") {
+        setUserName(null);
+        setUserRole("buyer");
+      }
+      if (event === "USER_UPDATED" || event === "SIGNED_IN") {
+        if (session?.user) {
+          setUserRole((session.user.user_metadata?.role as string) ?? "buyer");
+        }
+      }
     });
+
+    const resetIdleTimer = () => {
+      try {
+        window.localStorage.setItem("bhavnagar_last_activity", Date.now().toString());
+      } catch {}
+
+      if (logoutTimeoutRef.current) {
+        clearTimeout(logoutTimeoutRef.current);
+      }
+
+      logoutTimeoutRef.current = setTimeout(async () => {
+        await supabase.auth.signOut();
+        setUserLoggedIn(false);
+        setUserName(null);
+        setUserRole("buyer");
+        router.push("/");
+      }, IDLE_LOGOUT_MS);
+    };
+
+    const activityEvents = ["mousemove", "keydown", "click", "touchstart"];
+    activityEvents.forEach((eventName) => window.addEventListener(eventName, resetIdleTimer));
+
+    resetIdleTimer();
 
     return () => {
       mounted = false;
       subscription.unsubscribe();
+      if (logoutTimeoutRef.current) {
+        clearTimeout(logoutTimeoutRef.current);
+      }
+      activityEvents.forEach((eventName) => window.removeEventListener(eventName, resetIdleTimer));
     };
-  }, [supabase]);
+  }, [supabase, router]);
 
   return (
     <header className="sticky top-0 z-50">
@@ -128,15 +174,24 @@ export default function Header({ language, dictionary }: HeaderProps) {
           <Link href="/shop" className="rounded-md px-2 py-1 hover:bg-white/10">
             {dictionary.layout.nav.fruits}
           </Link>
-          <Link href="/orders" className="rounded-md px-2 py-1 hover:bg-white/10">
-            {dictionary.layout.nav.buyerOrders}
-          </Link>
-          <Link href="/admin" className="rounded-md px-2 py-1 hover:bg-white/10">
-            {dictionary.layout.nav.admin}
-          </Link>
-          <Link href="/farm" className="rounded-md px-2 py-1 hover:bg-white/10">
-            {dictionary.layout.nav.farm}
-          </Link>
+
+          {userLoggedIn && (userRole === "buyer" || userRole === "admin" || userRole === "farm_owner") ? (
+            <Link href="/orders" className="rounded-md px-2 py-1 hover:bg-white/10">
+              {dictionary.layout.nav.buyerOrders}
+            </Link>
+          ) : null}
+
+          {userLoggedIn && userRole === "admin" ? (
+            <Link href="/admin" className="rounded-md px-2 py-1 hover:bg-white/10">
+              {dictionary.layout.nav.admin}
+            </Link>
+          ) : null}
+
+          {userLoggedIn && (userRole === "farm_owner" || userRole === "admin") ? (
+            <Link href="/farm" className="rounded-md px-2 py-1 hover:bg-white/10">
+              {dictionary.layout.nav.farm}
+            </Link>
+          ) : null}
           <span className="ml-auto rounded-md bg-emerald-500/20 px-3 py-1 text-xs font-semibold text-emerald-200">
             {dictionary.layout.stockBanner}
           </span>

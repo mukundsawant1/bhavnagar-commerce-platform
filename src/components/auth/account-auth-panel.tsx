@@ -1,6 +1,7 @@
 ﻿"use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import type { Session, User } from "@supabase/supabase-js";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import type { AppDictionary } from "@/lib/i18n/dictionaries";
@@ -38,6 +39,7 @@ export default function AccountAuthPanel({ copy }: AccountAuthPanelProps) {
   const [error, setError] = useState<string | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [orders, setOrders] = useState<UserOrder[]>([]);
+  const router = useRouter();
 
   const isEmailAddress = (value: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
 
@@ -215,10 +217,20 @@ export default function AccountAuthPanel({ copy }: AccountAuthPanelProps) {
         return;
       }
 
-      setUser(signInResult.data.user ?? null);
+      const signedInUser = signInResult.data.user ?? null;
+      setUser(signedInUser);
       setMessage(copy.otpVerified);
       setOtpAttempts(0);
       setOtpCooldownUntil(null);
+
+      const activeRole = (signedInUser?.user_metadata?.role as UserRole | undefined) ?? role;
+      if (activeRole === "admin") {
+        router.push("/admin");
+      } else if (activeRole === "farm_owner") {
+        router.push("/farm");
+      } else {
+        router.push("/shop");
+      }
     } catch (caughtError) {
       setError(caughtError instanceof Error ? caughtError.message : copy.authFailed);
     } finally {
