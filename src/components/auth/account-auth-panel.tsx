@@ -188,6 +188,14 @@ export default function AccountAuthPanel({ copy }: AccountAuthPanelProps) {
 
       const data = await res.json();
       if (!res.ok) {
+        if (data?.code === "existing_user") {
+          setMode("signin");
+          setOtpRequested(false);
+          setMessage("Email already registered. Switched to Sign In mode.");
+          setError("Please enter your OTP for sign in.");
+          return;
+        }
+
         const nextAttempt = otpAttempts + 1;
         setOtpAttempts(nextAttempt);
 

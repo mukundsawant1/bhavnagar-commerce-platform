@@ -73,7 +73,10 @@ async function ensureUserExists({
 
   if (existingUser) {
     if (mode === "signup") {
-      return { error: "Email already registered. Please sign in instead." };
+      return {
+        error: "Email already registered. Please sign in instead.",
+        code: "existing_user",
+      };
     }
 
     if (typeof admin.updateUserById !== "function") {
@@ -300,7 +303,15 @@ export async function POST(request: Request) {
         email: normalizedEmail,
         error: result.error,
       });
-      return NextResponse.json({ error: result.error }, { status: 500 });
+
+      if (result.code === "existing_user") {
+        return NextResponse.json(
+          { error: result.error, code: "existing_user" },
+          { status: 409 },
+        );
+      }
+
+      return NextResponse.json({ error: result.error }, { status: 400 });
     }
 
     return NextResponse.json({
