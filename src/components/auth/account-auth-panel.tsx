@@ -43,6 +43,10 @@ export default function AccountAuthPanel({ copy }: AccountAuthPanelProps) {
 
   const isEmailAddress = (value: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
 
+  const requestLine = mode === "signin"
+    ? "Sign in with your email; we will send an OTP to your inbox."
+    : "Sign up with your email; we will send an OTP to your inbox.";
+
   const roleLabels: Record<UserRole, string> = {
     buyer: copy.roleBuyer,
     admin: copy.roleAdmin,
@@ -401,7 +405,13 @@ export default function AccountAuthPanel({ copy }: AccountAuthPanelProps) {
           }
           className="w-full rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-60"
         >
-          {loading ? copy.pleaseWait : otpRequested ? copy.verifyOtp : copy.requestOtp}
+          {loading
+            ? copy.pleaseWait
+            : otpRequested
+            ? copy.verifyOtp
+            : mode === "signin"
+            ? copy.signIn
+            : copy.signUp}
         </button>
 
         {otpRequested && (
@@ -420,6 +430,8 @@ export default function AccountAuthPanel({ copy }: AccountAuthPanelProps) {
         )}
       </div>
 
+      <p className="mt-3 text-xs text-slate-600">{requestLine}</p>
+      <p className="mt-2 text-xs text-slate-600 font-semibold">{otpRequested ? "OTP has been sent. Check your email (inbox/spam) and verify below." : mode === "signin" ? "Click Login to request an OTP." : "Click Sign Up to request an OTP."}</p>
       <p className="mt-4 text-xs text-slate-600">{copy.authHelpText}</p>
     </section>
   );

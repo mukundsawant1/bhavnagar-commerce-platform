@@ -55,7 +55,15 @@ export async function middleware(request: NextRequest) {
       data: { user },
     } = await supabase.auth.getUser();
 
-    if (!user) {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
+    const sessionIsExpired = session?.expires_at
+      ? session.expires_at * 1000 < Date.now()
+      : true;
+
+    if (!user || !session || sessionIsExpired || session.user?.id !== user.id) {
       const nextPath = isAdminRoute ? "/admin" : isFarmRoute ? "/farm" : pathname;
       return NextResponse.redirect(new URL(`/account?next=${encodeURIComponent(nextPath)}`, request.url));
     }
