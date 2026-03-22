@@ -197,6 +197,24 @@ export default function AccountAuthPanel({ copy }: AccountAuthPanelProps) {
         return;
       }
 
+      const signInResult = await supabase.auth.signInWithPassword({
+        email: normalizedEmail,
+        password: otpCode.trim(),
+      });
+
+      if (signInResult.error) {
+        // OTP was verified, but auto sign-in failed (e.g. token/expire problem)
+        setMessage(copy.otpVerified);
+        setError(
+          `OTP verified, but sign-in failed: ${signInResult.error.message}.` +
+            " Please sign in again with the same OTP or use password login.",
+        );
+        setOtpAttempts(0);
+        setOtpCooldownUntil(null);
+        return;
+      }
+
+      setUser(signInResult.data.user ?? null);
       setMessage(copy.otpVerified);
       setOtpAttempts(0);
       setOtpCooldownUntil(null);
