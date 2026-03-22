@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { enforceRateLimit } from "@/lib/rate-limit";
 import { sendOTPEmail } from "@/lib/email";
+import { saveOtpCache } from "@/lib/otp-store";
 
 const isValidEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
 
@@ -55,10 +56,20 @@ export async function POST(request: Request) {
 
     if (insertError) {
       console.error("OTP insert error", insertError);
-      return NextResponse.json(
-        { error: "Unable to store OTP. Please retry after a moment." },
-        { status: 500 },
-      );
+      if (process.env.NODE_ENV !== "production") {
+        saveOtpCache(normalizedEmail, {
+          code: otp,
+          expires_at: expiresAt,
+          attempts: 0,
+          consumed: false,
+        });
+        console.warn("Stored OTP in fallback cache for local dev, but DB insert failed.");
+      } else {
+        return NextResponse.json(
+          { error: "Unable to store OTP. Please retry after a moment." },
+          { status: 500 },
+        );
+      }
     }
 
     try {

@@ -166,6 +166,51 @@ stripe listen --forward-to localhost:3000/api/webhooks/stripe
 - links Stripe session using `stripe_session_id`
 - tracks status lifecycle (`pending`, `paid`, `failed`, `cancelled`)
 
+### `otps`
+- stores OTP issuance data for sign-in/sign-up auth
+- fields: `email`, `code`, `expires_at`, `attempts`, `consumed`, `created_at`
+- active and stale OTPs are automatically scoped by `expires_at` and `consumed`.
+
+## App Health and DB Check
+
+The app includes two health endpoints:
+
+1. `GET /api/db-health`
+2. `GET /api/auth/db-health`
+
+These endpoints return JSON with current status:
+- `healthy`: boolean
+- `db`: `ok` / `unhealthy` / `exception`
+- `sampleProfiles` or `sampleOtps` (row count support check)
+- `timestamp`: current UTC time
+- `branch`, `commit`: from environment variables (Vercel or local config)
+
+### How to verify
+
+1. Start the app:
+```bash
+npm run dev
+```
+2. Call the endpoint:
+```bash
+curl -s http://localhost:3000/api/auth/db-health | jq
+```
+3. Expected for healthy system:
+```json
+{
+  "healthy": true,
+  "db": "ok",
+  "sampleOtps": 0,
+  "timestamp": "2026-03-22T00:00:00.000Z",
+  "branch": "main",
+  "commit": "abcdef123456"
+}
+```
+4. If `healthy` is false:
+   - validate DB migration exists (especially `otps` table)
+   - validate `SUPABASE_SERVICE_ROLE_KEY` + `SUPABASE_URL`
+   - inspect server logs for `OTP insert error` or `OTP select error`
+
 ## Troubleshooting
 
 ### Cannot access `/admin`

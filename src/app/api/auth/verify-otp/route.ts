@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { enforceRateLimit } from "@/lib/rate-limit";
-import { markOtpCacheConsumed, incrementOtpCacheAttempts } from "@/lib/otp-store";
+import { getOtpCache, markOtpCacheConsumed, incrementOtpCacheAttempts } from "@/lib/otp-store";
 
 const isValidEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
 
@@ -145,7 +145,16 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Unable to verify OTP." }, { status: 500 });
     }
 
-    const entry = rows?.[0] ?? null;
+    let entry = rows?.[0] ?? null;
+    let isFallback = false;
+
+    if (!entry) {
+      const cached = getOtpCache(normalizedEmail);
+      if (cached && !cached.consumed && new Date(cached.expires_at).getTime() >= Date.now()) {
+        entry = cached;
+        isFallback = true;
+      }
+    }
 
     if (!entry) {
       return NextResponse.json({ error: "OTP is invalid or expired." }, { status: 401 });
@@ -165,7 +174,7 @@ export async function POST(request: Request) {
     if (entry.code !== code.trim()) {
       const newAttempts = entry.attempts + 1;
 
-      if (entry.id) {
+      if (!isFallback && entry.id) {
         const { error: updateError } = await supabase
           .from("otps")
           .update({ attempts: newAttempts })
@@ -174,9 +183,9 @@ export async function POST(request: Request) {
         if (updateError) {
           console.error("OTP attempt update error", updateError);
         }
+      } else {
+        incrementOtpCacheAttempts(normalizedEmail);
       }
-
-      incrementOtpCacheAttempts(normalizedEmail);
 
       if (newAttempts >= 3) {
         return NextResponse.json(
@@ -198,10 +207,11 @@ export async function POST(request: Request) {
       );
     }
 
-    if (entry.id) {
+    if (!isFallback && entry.id) {
       await supabase.from("otps").update({ consumed: true }).eq("id", entry.id);
+    } else {
+      markOtpCacheConsumed(normalizedEmail);
     }
-    markOtpCacheConsumed(normalizedEmail);
 
     const result = await ensureUserExists({
       email: normalizedEmail,
