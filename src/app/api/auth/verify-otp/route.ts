@@ -160,14 +160,23 @@ export async function POST(request: Request) {
     }
 
     if (entry.attempts >= 3) {
-      return NextResponse.json({ error: "Maximum OTP verification attempts reached." }, { status: 429 });
+      return NextResponse.json(
+        {
+          error:
+            "Maximum OTP verification attempts reached. Your account is locked for 15 minutes.",
+          help: "Please contact support@bhavnagarstore.com for assistance.",
+        },
+        { status: 429 },
+      );
     }
 
     if (entry.code !== code.trim()) {
+      const newAttempts = entry.attempts + 1;
+
       if (isDbMode && entry.id) {
         const { error: updateError } = await supabase
           .from("otps")
-          .update({ attempts: entry.attempts + 1 })
+          .update({ attempts: newAttempts })
           .eq("id", entry.id);
 
         if (updateError) {
@@ -177,7 +186,24 @@ export async function POST(request: Request) {
 
       incrementOtpCacheAttempts(normalizedEmail);
 
-      return NextResponse.json({ error: "OTP is invalid." }, { status: 401 });
+      if (newAttempts >= 3) {
+        return NextResponse.json(
+          {
+            error:
+              "Maximum OTP attempts used. Account locked for 15 minutes.",
+            help: "Please contact support@bhavnagarstore.com",
+          },
+          { status: 429 },
+        );
+      }
+
+      return NextResponse.json(
+        {
+          error: `OTP is invalid. ${3 - newAttempts} attempt(s) remaining before lock.`,
+          attemptsRemaining: 3 - newAttempts,
+        },
+        { status: 401 },
+      );
     }
 
     // mark consumed

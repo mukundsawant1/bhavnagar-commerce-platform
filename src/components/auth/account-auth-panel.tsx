@@ -6,7 +6,6 @@ import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import type { AppDictionary } from "@/lib/i18n/dictionaries";
 
 type AccountAuthPanelProps = {
-  nextPath?: string;
   copy: AppDictionary["auth"];
 };
 
@@ -21,7 +20,7 @@ type UserOrder = {
   created_at: string;
 };
 
-export default function AccountAuthPanel({ nextPath, copy }: AccountAuthPanelProps) {
+export default function AccountAuthPanel({ copy }: AccountAuthPanelProps) {
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
 
   const [mode, setMode] = useState<AuthMode>("signin");
@@ -31,7 +30,9 @@ export default function AccountAuthPanel({ nextPath, copy }: AccountAuthPanelPro
   const [role, setRole] = useState<UserRole>("buyer");
   const [otpCode, setOtpCode] = useState("");
   const [otpRequested, setOtpRequested] = useState(false);
-  const [otpVerified, setOtpVerified] = useState(false);
+  const [otpAttempts, setOtpAttempts] = useState(0);
+  const [otpCooldownUntil, setOtpCooldownUntil] = useState<Date | null>(null);
+  const [accountLockedUntil, setAccountLockedUntil] = useState<Date | null>(null);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -45,6 +46,9 @@ export default function AccountAuthPanel({ nextPath, copy }: AccountAuthPanelPro
     admin: copy.roleAdmin,
     farm_owner: copy.roleFarm,
   };
+
+  const isAccountLocked = accountLockedUntil !== null && accountLockedUntil > new Date();
+  const attemptsLeft = Math.max(0, 3 - otpAttempts);
 
   useEffect(() => {
     let isMounted = true;
@@ -88,6 +92,20 @@ export default function AccountAuthPanel({ nextPath, copy }: AccountAuthPanelPro
     setMessage(null);
 
     try {
+      const now = new Date();
+      if (accountLockedUntil && accountLockedUntil > now) {
+        throw new Error(
+          `${copy.otpMaxAttemptsReached} ${copy.otpMaxAttemptsHelp} ` +
+            `(${Math.ceil((accountLockedUntil.getTime() - now.getTime()) / 60000)} min)`,
+        );
+      }
+
+      if (otpCooldownUntil && otpCooldownUntil > now) {
+        throw new Error(
+          `${copy.otpResendCooldown}: ${Math.ceil((otpCooldownUntil.getTime() - now.getTime()) / 1000)}s`,
+        );
+      }
+
       const normalizedEmail = email.trim().toLowerCase();
 
       if (!isEmailAddress(normalizedEmail)) {
@@ -106,6 +124,9 @@ export default function AccountAuthPanel({ nextPath, copy }: AccountAuthPanelPro
       }
 
       setOtpRequested(true);
+      setOtpAttempts(0);
+      setAccountLockedUntil(null);
+      setOtpCooldownUntil(new Date(Date.now() + 60_000));
       setMessage(data?.message ?? copy.otpSent);
     } catch (caughtError) {
       setError(caughtError instanceof Error ? caughtError.message : copy.authFailed);
@@ -120,10 +141,22 @@ export default function AccountAuthPanel({ nextPath, copy }: AccountAuthPanelPro
     setMessage(null);
 
     try {
+      const now = new Date();
+      if (accountLockedUntil && accountLockedUntil > now) {
+        throw new Error(
+          `${copy.otpMaxAttemptsReached} ${copy.otpMaxAttemptsHelp} ` +
+            `(${Math.ceil((accountLockedUntil.getTime() - now.getTime()) / 60000)} min)`,
+        );
+      }
+
       const normalizedEmail = email.trim().toLowerCase();
 
       if (!isEmailAddress(normalizedEmail)) {
         throw new Error(copy.emailInvalidError);
+      }
+
+      if (!otpRequested) {
+        throw new Error(copy.otpRequired);
       }
 
       if (!otpCode.trim()) {
@@ -148,69 +181,28 @@ export default function AccountAuthPanel({ nextPath, copy }: AccountAuthPanelPro
 
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(data?.error ?? copy.authFailed);
-      }
+        const nextAttempt = otpAttempts + 1;
+        setOtpAttempts(nextAttempt);
 
-      // OTP is valid; ensure Supabase user exists (or is updated) on server
-      setOtpVerified(true);
+        if (nextAttempt >= 3) {
+          setAccountLockedUntil(new Date(Date.now() + 15 * 60 * 1000));
+          setError(`${copy.otpMaxAttemptsReached} ${copy.otpMaxAttemptsHelp}`);
+        } else {
+          setOtpCooldownUntil(new Date(Date.now() + 60 * 1000));
+          setError(
+            `${data?.error ?? copy.otpRequired} ${copy.otpAttemptRemaining.replace("{count}", `${3 - nextAttempt}`)}`,
+          );
+        }
 
-      // Direct OTP sign in using the same code as temporary password.
-      const signInResult = await supabase.auth.signInWithPassword({
-        email: normalizedEmail,
-        password: otpCode.trim(),
-      });
-
-      if (signInResult.error) {
-        setError(`${copy.otpVerified} ${copy.otpAuthSignInFailed}: ${signInResult.error.message}`);
-        setMessage(data?.message ?? copy.otpVerified);
         return;
       }
 
       setMessage(copy.otpVerified);
+      setOtpAttempts(0);
+      setOtpCooldownUntil(null);
     } catch (caughtError) {
       setError(caughtError instanceof Error ? caughtError.message : copy.authFailed);
     } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleGoogleSignIn = async () => {
-    setLoading(true);
-    setError(null);
-    setMessage(null);
-
-    const normalizedEmail = email.trim().toLowerCase();
-    if (!isEmailAddress(normalizedEmail)) {
-      setError(copy.emailInvalidError);
-      setLoading(false);
-      return;
-    }
-
-    if (!otpRequested) {
-      setError(copy.otpBeforeGoogle);
-      setLoading(false);
-      return;
-    }
-
-    if (!otpVerified) {
-      setError(copy.otpVerifyRequired);
-      setLoading(false);
-      return;
-    }
-
-    const redirectTo = nextPath
-      ? `${window.location.origin}/account?next=${encodeURIComponent(nextPath)}`
-      : `${window.location.origin}/account`;
-
-    const { error: oauthError } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: {
-        redirectTo,
-      },
-    });
-
-    if (oauthError) {
-      setError(oauthError.message);
       setLoading(false);
     }
   };
@@ -229,7 +221,6 @@ export default function AccountAuthPanel({ nextPath, copy }: AccountAuthPanelPro
       setOrders([]);
       setMessage(copy.signedOutSuccess);
       setOtpRequested(false);
-      setOtpVerified(false);
     }
 
     setLoading(false);
@@ -287,7 +278,6 @@ export default function AccountAuthPanel({ nextPath, copy }: AccountAuthPanelPro
             onClick={() => {
               setMode("signin");
               setOtpRequested(false);
-              setOtpVerified(false);
               setMessage(null);
               setError(null);
             }}
@@ -302,7 +292,6 @@ export default function AccountAuthPanel({ nextPath, copy }: AccountAuthPanelPro
             onClick={() => {
               setMode("signup");
               setOtpRequested(false);
-              setOtpVerified(false);
               setMessage(null);
               setError(null);
             }}
@@ -315,97 +304,92 @@ export default function AccountAuthPanel({ nextPath, copy }: AccountAuthPanelPro
       {error ? <div className="mt-4 rounded-md bg-rose-50 px-4 py-3 text-sm text-rose-800">{error}</div> : null}
       {message ? <div className="mt-4 rounded-md bg-emerald-50 px-4 py-3 text-sm text-emerald-800">{message}</div> : null}
 
-      <div className="mt-6 grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
-        <div className="space-y-3">
-          {mode === "signup" ? (
-            <>
-              <input
-                type="text"
-                placeholder={copy.fullName}
-                value={fullName}
-                onChange={(event) => setFullName(event.target.value)}
-                className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm"
-                required
-              />
-              <input
-                type="text"
-                placeholder={copy.surname}
-                value={surname}
-                onChange={(event) => setSurname(event.target.value)}
-                className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm"
-              />
-              <select
-                value={role}
-                onChange={(event) => setRole(event.target.value as UserRole)}
-                className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm"
-              >
-                <option value="buyer">{copy.roleBuyer}</option>
-                <option value="admin">{copy.roleAdmin}</option>
-                <option value="farm_owner">{copy.roleFarm}</option>
-              </select>
-            </>
-          ) : null}
-
-          <div className="flex flex-col gap-2">
+      <div className="mt-6 space-y-3">
+        {mode === "signup" && (
+          <>
             <input
-              type="email"
-              placeholder={copy.emailAddress}
-              value={email}
-              onChange={(event) => {
-                setEmail(event.target.value);
-                setOtpRequested(false);
-                setOtpVerified(false);
-              }}
+              type="text"
+              placeholder={copy.fullName}
+              value={fullName}
+              onChange={(event) => setFullName(event.target.value)}
               className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm"
               required
             />
-          </div>
-
-          <div className="grid grid-cols-2 gap-2">
-            <button
-              type="button"
-              onClick={requestOtp}
-              disabled={loading || !isEmailAddress(email)}
-              className="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-500 disabled:opacity-60"
+            <input
+              type="text"
+              placeholder={copy.surname}
+              value={surname}
+              onChange={(event) => setSurname(event.target.value)}
+              className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm"
+            />
+            <select
+              value={role}
+              onChange={(event) => setRole(event.target.value as UserRole)}
+              className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm"
             >
-              {copy.requestOtp}
-            </button>
-            <button
-              type="button"
-              onClick={verifyOtp}
-              disabled={loading || !otpRequested || !otpCode.trim()}
-              className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500 disabled:opacity-60"
-            >
-              {copy.verifyOtp}
-            </button>
-          </div>
+              <option value="buyer">{copy.roleBuyer}</option>
+              <option value="admin">{copy.roleAdmin}</option>
+              <option value="farm_owner">{copy.roleFarm}</option>
+            </select>
+          </>
+        )}
 
-          <input
-            type="text"
-            placeholder={copy.otpCode}
-            value={otpCode}
-            onChange={(event) => setOtpCode(event.target.value)}
-            className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm"
-          />
+        <input
+          type="email"
+          placeholder={copy.emailAddress}
+          value={email}
+          onChange={(event) => {
+            setEmail(event.target.value);
+            setOtpRequested(false);
+          }}
+          className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm"
+          required
+        />
 
+        <input
+          type="text"
+          placeholder={copy.otpCode}
+          value={otpCode}
+          onChange={(event) => setOtpCode(event.target.value)}
+          className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm"
+        />
+
+        {!isAccountLocked && otpRequested && (
+          <p className="text-xs text-slate-500">
+            {copy.otpAttemptRemaining.replace("{count}", `${attemptsLeft}`)}
+          </p>
+        )}
+
+        <button
+          type="button"
+          onClick={otpRequested ? verifyOtp : requestOtp}
+          disabled={
+            loading ||
+            !isEmailAddress(email) ||
+            (!!accountLockedUntil && accountLockedUntil > new Date())
+          }
+          className="w-full rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {loading ? copy.pleaseWait : otpRequested ? copy.verifyOtp : copy.requestOtp}
+        </button>
+
+        {otpRequested && (
           <button
             type="button"
-            onClick={handleGoogleSignIn}
-            disabled={loading || !otpVerified}
-            className="w-full rounded-md bg-teal-500 px-4 py-2 text-sm font-semibold text-slate-50 hover:bg-teal-400 disabled:cursor-not-allowed disabled:opacity-60"
+            onClick={() => {
+              setOtpRequested(false);
+              setOtpCode("");
+              setMessage(null);
+              setError(null);
+            }}
+            className="w-full rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100"
           >
-            {loading ? copy.pleaseWait : copy.continueGoogle}
+            {copy.cancel}
           </button>
-        </div>
-
-        <div className="rounded-2xl border border-slate-200 bg-white p-4">
-          <p className="text-sm font-semibold">{copy.continueWithGoogleTitle}</p>
-          <p className="mt-1 text-xs text-slate-600">{copy.continueWithGoogleSubtitle}</p>
-          <p className="mt-3 text-xs text-slate-500">{copy.googleOAuthHint}</p>
-        </div>
+        )}
       </div>
 
-      <p className="mt-4 text-xs text-slate-600">{copy.gmailOnlyHint}</p>
+      <p className="mt-4 text-xs text-slate-600">{copy.authHelpText}</p>
     </section>
   );
 }

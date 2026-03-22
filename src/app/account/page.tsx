@@ -43,7 +43,7 @@ export default async function AccountPage({ searchParams }: AccountPageProps) {
           {dictionary.account.configError}
         </p>
       ) : null}
-      <AccountAuthPanel nextPath={nextPath} copy={dictionary.auth} />
+      <AccountAuthPanel copy={dictionary.auth} />
       <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
         <h2 className="text-lg font-semibold">Your Orders</h2>
         <p className="mt-2 text-sm text-muted">Track your orders and see payment & delivery status.</p>
