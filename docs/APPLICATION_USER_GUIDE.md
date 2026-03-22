@@ -13,7 +13,7 @@ This document explains how to use the Bhavnagar web application as a buyer, admi
 - Shop browsing: `/shop`
 - Cart page scaffold: `/cart`
 - Checkout page scaffold: `/checkout`
-- Account authentication: `/account` (Gmail-first sign-in/sign-up/sign-out + Google OAuth)
+- Account authentication: `/account` (email OTP sign-in/sign-up/sign-out + Google OAuth)
 - Admin dashboard: `/admin` (requires authenticated admin role)
 - Farm dashboard: `/farm` (requires authenticated farm_owner role)
 - Checkout API: `POST /api/checkout`
@@ -97,14 +97,14 @@ If a non-farm-owner user opens `/farm`, middleware redirects to `/account`.
 - Session check: middleware validates user for `/admin/*` and `/farm/*` routes.
 - Authorization check: middleware reads `profiles.role` and allows `admin` for `/admin` and `farm_owner` for `/farm`.
 
-### OTP email flow (Gmail/Nodemailer)
+### OTP email flow (Nodemailer)
 
-1. User enters Gmail address in `/account` and requests OTP.
+1. User enters email address in `/account` and requests OTP.
 2. App calls `POST /api/auth/request-otp`.
 3. OTP is generated server-side and stored in Supabase `otps` table (5 min expiry, 3 attempts max).
-4. Email is sent via Gmail SMTP using Nodemailer and the configured environment variables:
-   - `EMAIL_USER` (your Gmail address)
-   - `EMAIL_PASS` (Gmail app password; requires 2FA and app-specific password)
+4. Email is sent by the app via SMTP using Nodemailer and configured environment variables (any email provider that supports SMTP credentials is allowed):
+   - `EMAIL_USER` (sender email address)
+   - `EMAIL_PASS` (app-specific password or SMTP password)
    - `EMAIL_FROM_NAME` (display sender name, e.g. `Bhavnagar Store`)
 5. User enters OTP and verifies via `POST /api/auth/verify-otp`.
 6. Successful OTP enables account flow and Google sign-in.
@@ -113,8 +113,8 @@ If a non-farm-owner user opens `/farm`, middleware redirects to `/account`.
 
 ### Required env vars for OTP email
 
-- `EMAIL_USER`: Gmail address, e.g. `yourcompany@gmail.com`.
-- `EMAIL_PASS`: Gmail app password (do not use normal account password).
+- `EMAIL_USER`: sender email address, e.g. `no-reply@yourdomain.com`.
+- `EMAIL_PASS`: SMTP password (app-specific password or generated SMTP credentials).
 - `EMAIL_FROM_NAME`: friendly sender name, e.g. `Bhavnagar Store`.
 
 

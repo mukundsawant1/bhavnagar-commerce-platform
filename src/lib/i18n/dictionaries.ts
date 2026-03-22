@@ -126,7 +126,7 @@ export type AppDictionary = {
     signUp: string;
     fullName: string;
     surname: string;
-    gmailAddress: string;
+    emailAddress: string;
     otpCode: string;
     requestOtp: string;
     verifyOtp: string;
@@ -137,6 +137,7 @@ export type AppDictionary = {
     otpVerifyRequired: string;
     fullNameRequired: string;
     password: string;
+    emailInvalidError: string;
     createAccount: string;
     pleaseWait: string;
     continueGoogle: string;
@@ -276,12 +277,12 @@ export const dictionaries: Record<AppLanguage, AppDictionary> = {
     },
     account: {
       title: "Account",
-      subtitle: "Gmail-first sign-in for Buyer, Admin, and Farm Owner roles.",
+      subtitle: "Email sign-in for Buyer, Admin, and Farm Owner roles.",
       roleGuide: "Role Access Guide",
       buyerLine: "Buyer: place bulk fruit and vegetable orders and track delivery commitments.",
       adminLine: "Admin: review buyer orders, assign farm source, and confirm final delivery date.",
       farmLine: "Farm owner: update stock levels and expected dispatch date to admin.",
-      gmailLine: "Use Gmail account or Continue With Google for registration.",
+      gmailLine: "Enter your email or continue with Google to authenticate.",
       paymentSuccess: "Payment completed successfully. Your order status will update shortly.",
       checkoutCancelled: "Checkout was cancelled. You can retry from your cart.",
       signInPrompt: "Please sign in to access",
@@ -294,15 +295,16 @@ export const dictionaries: Record<AppLanguage, AppDictionary> = {
       signUp: "Sign Up",
       fullName: "Full name",
       surname: "Surname (optional)",
-      gmailAddress: "Gmail address",
+      emailAddress: "Email address",
       otpCode: "OTP code",
       requestOtp: "Request OTP",
       verifyOtp: "Verify OTP",
       otpSent: "OTP generated. Check your email for the code.",
-      otpVerified: "OTP verified. You may now continue with Google.",
+      otpVerified: "OTP verified. You may now continue or sign in with email OTP.",
       otpRequired: "OTP code is required.",
       otpBeforeGoogle: "Request OTP before Google authentication.",
       otpVerifyRequired: "Verify OTP before continuing with Google.",
+      otpAuthSignInFailed: "OTP verified, but password sign-in failed.",
       fullNameRequired: "Full name is required for signup.",
       password: "Password",
       createAccount: "Create Account",
@@ -322,11 +324,12 @@ export const dictionaries: Record<AppLanguage, AppDictionary> = {
       roleFarm: "Farm Owner",
       recentOrders: "Recent Orders",
       noRecentOrders: "No recent orders found.",
-      gmailOnlyHint: "You can register with any email address or use Google OAuth. Admin and farm-owner roles should be approved in the database profile for production.",
+      gmailOnlyHint: "Enter your email address and verify OTP before signing in. Google OAuth is still available.",
       signedInSuccess: "Signed in successfully.",
       signedOutSuccess: "Signed out.",
       signupSuccess: "Account created. Check your email for verification if enabled.",
-      gmailOnlyError: "Use a Gmail address to continue (example: yourname@gmail.com).",
+      emailInvalidError: "Use a valid email address to continue.",
+      gmailOnlyError: "Use a valid email address to continue.",
       authFailed: "Authentication failed.",
     },
   },
@@ -463,6 +466,7 @@ export const dictionaries: Record<AppLanguage, AppDictionary> = {
       otpRequired: "ओटीपी कोड आवश्यक है।",
       otpBeforeGoogle: "Google प्रमाणीकरण से पहले ओटीपी अनुरोध करें।",
       otpVerifyRequired: "Google के साथ जारी रखने से पहले ओटीपी सत्यापित करें।",
+      otpAuthSignInFailed: "ओटीपी सत्यापित किया गया, लेकिन पासवर्ड साइन-इन विफल रहा।",
       fullNameRequired: "साइन अप के लिए पूरा नाम आवश्यक है।",
       password: "पासवर्ड",
       createAccount: "खाता बनाएं",
@@ -482,11 +486,12 @@ export const dictionaries: Record<AppLanguage, AppDictionary> = {
       roleFarm: "फार्म मालिक",
       recentOrders: "हाल के ऑर्डर",
       noRecentOrders: "कोई हालिया ऑर्डर नहीं मिला।",
-      gmailOnlyHint: "पंजीकरण केवल जीमेल से है। प्रोडक्शन में एडमिन और फार्म भूमिकाओं को डेटाबेस में अनुमोदित करें।",
+      gmailOnlyHint: "अपना ईमेल पता दर्ज करें और ओटीपी सत्यापित करें। Google OAuth अभी भी उपलब्ध है।",
       signedInSuccess: "सफलतापूर्वक साइन इन हुआ।",
       signedOutSuccess: "साइन आउट हुआ।",
       signupSuccess: "खाता बन गया। यदि सक्षम हो तो सत्यापन ईमेल देखें।",
-      gmailOnlyError: "आगे बढ़ने के लिए जीमेल पता उपयोग करें (उदाहरण: yourname@gmail.com)।",
+      emailInvalidError: "आगे बढ़ने के लिए मान्य ईमेल पता उपयोग करें।",
+      gmailOnlyError: "आगे बढ़ने के लिए मान्य ईमेल पता उपयोग करें।",
       authFailed: "प्रमाणीकरण विफल।",
     },
   },
@@ -614,16 +619,17 @@ export const dictionaries: Record<AppLanguage, AppDictionary> = {
       signUp: "સાઇન અપ",
       fullName: "પૂર્ણ નામ",
       surname: "ઉપનામ (વૈકલ્પિક)",
-      gmailAddress: "Gmail સરનામું",
+      emailAddress: "ઈમેલ સરનામું",
       otpCode: "ઓટીફી કોડ",
       requestOtp: "ઓટીફી માંગો",
       verifyOtp: "ઓટીફી ચકાસો",
       otpSent: "ઓટીફી બનાવવામાં આવ્યો. કોડ માટે તમારું ઈમેલ તપાસો.",
-      otpVerified: "ઓટીફી માન્ય છે. હવે ગૂગલ સાથે આગળ વધો.",
+      otpVerified: "ઓટીફી માન્ય છે. હવે ગૂગલ અથવા ઇમેઇલ ઓટીફી સાથે સાઇન ઇન કરો.",
       otpRequired: "ઓટીફી કોડ જરૂરી છે.",
       otpBeforeGoogle: "ગૂગલ પ્રામાણિકરણ પહેલા ઓટીફી માંગો.",
       otpVerifyRequired: "ગૂગલ સાથે આગળ વધતા પહેલા ઓટીફી ચકાસો.",
-      fullNameRequired: "સાઇન અપ માટે સંપૂર્ણ નામ જરૂરી છે.",
+      otpAuthSignInFailed: "ઓટીફી માન્ય છે, પરંતુ પાસવર્ડ સાઇન-ઇન નિષ્ફળ થયું.",
+      fullNameRequired: "સાઇન અપ માટે સંપૂર્ણ નામ ضروری છે.",
       password: "પાસવર્ડ",
       createAccount: "એકાઉન્ટ બનાવો",
       pleaseWait: "કૃપા કરીને રાહ જુઓ...",
@@ -642,11 +648,12 @@ export const dictionaries: Record<AppLanguage, AppDictionary> = {
       roleFarm: "ફાર્મ માલિક",
       recentOrders: "તાજેતરના ઓર્ડર",
       noRecentOrders: "તાજેતરમાં કોઈ ઓર્ડર નથી.",
-      gmailOnlyHint: "રજિસ્ટ્રેશન ફક્ત Gmail માટે છે. પ્રોડક્શનમાં એડમિન અને ફાર્મ ભૂમિકાઓ ડેટાબેસમાં મંજૂર થવી જોઈએ.",
+      gmailOnlyHint: "તમારું ઇમેલ સરનામું દાખલ કરો અને ઓટીફી ચકાસો. Google OAuth હજી પણ ઉપલબ્ધ છે.",
       signedInSuccess: "સફળતાપૂર્વક સાઇન ઇન થયું.",
       signedOutSuccess: "સાઇન આઉટ થયું.",
       signupSuccess: "એકાઉન્ટ બની ગયું. જો સક્ષમ હોય તો ચકાસણી ઇમેઇલ જુઓ.",
-      gmailOnlyError: "આગળ વધવા માટે Gmail સરનામું વાપરો (ઉદાહરણ: yourname@gmail.com).",
+      emailInvalidError: "આગળ વધવા માટે માન્ય ઈમેલ સરનામું વાપરો.",
+      gmailOnlyError: "આગળ વધવા માટે માન્ય ઈમેલ સરનામું વાપરો.",
       authFailed: "પ્રમાણીકરણ નિષ્ફળ ગયું.",
     },
   },

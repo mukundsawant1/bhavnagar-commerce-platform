@@ -1,65 +1,84 @@
 import { NextResponse } from "next/server";
-import { createServerClient } from "@supabase/ssr";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { enforceRateLimit } from "@/lib/rate-limit";
+import { getOtpCache, markOtpCacheConsumed, incrementOtpCacheAttempts } from "@/lib/otp-store";
 
-const isValidGmail = (email: string) => /^[^\s@]+@gmail\.com$/i.test(email.trim());
+const isValidEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
 
 async function ensureUserExists({
   email,
   fullName,
   surname,
   role,
+  password,
 }: {
   email: string;
   fullName?: string;
   surname?: string;
   role?: string;
+  password: string;
 }) {
   const supabase = getSupabaseAdminClient();
 
   type AdminAuthType = {
-    createUser?: (payload: Record<string, unknown>) => Promise<{ data?: unknown; error?: { message?: string } }>;
+    createUser?: (payload: Record<string, unknown>) => Promise<{ data?: { user?: { id: string } }; error?: { message?: string } }>;
+    listUsers?: (opts?: { page?: number; perPage?: number }) => Promise<{ data?: { users?: Array<{ id: string; email?: string }> }; error?: { message?: string } }>;
+    updateUserById?: (id: string, payload: Record<string, unknown>) => Promise<{ data?: { user?: { id: string } }; error?: { message?: string } }>;
   };
 
   const admin = supabase.auth.admin as unknown as AdminAuthType;
 
-  // Ensure the user exists in Supabase with metadata (no direct password from frontend required).
-  // On role and profile, store role and name with user metadata.
-  // NOTE: choose strong generated password to avoid password usage by client.
-  const randomPassword = Math.random().toString(36).slice(-12) + "A1!";
-
-  const payload: Record<string, unknown> = {
-    email,
-    password: randomPassword,
-    email_confirm: true,
-    user_metadata: {
-      full_name: fullName ?? "",
-      surname: surname ?? "",
-      role: role ?? "buyer",
-    },
+  const userMetadata = {
+    full_name: fullName ?? "",
+    surname: surname ?? "",
+    role: role ?? "buyer",
   };
 
-  // Due to API differences, this method may throw if user exists. we ignore that.
-  try {
-    if (typeof admin.createUser === "function") {
-      const { data, error } = await admin.createUser(payload);
-      if (error) {
-        if (error.message?.toLowerCase().includes("already exists")) {
-          return { exists: true };
-        }
-        return { error: error.message };
-      }
-      return { success: true, data };
+  const getExistingUser = async () => {
+    if (typeof admin.listUsers !== "function") return null;
+
+    const { data, error } = await admin.listUsers({ page: 1, perPage: 100 });
+    if (error || !data?.users) return null;
+
+    const found = data.users.find((u) => u.email?.toLowerCase() === email.toLowerCase());
+    return found ?? null;
+  };
+
+  const existingUser = await getExistingUser();
+
+  if (existingUser) {
+    const { data, error } = await admin.updateUserById?.(existingUser.id, {
+      password,
+      email_confirm: true,
+      user_metadata: userMetadata,
+    });
+
+    if (error) {
+      return { error: error.message || "Unable to update existing user." };
     }
 
+    return { success: true, userId: existingUser.id, user: data?.user ?? existingUser };
+  }
+
+  if (typeof admin.createUser !== "function") {
     return { error: "Supabase admin createUser not available." };
-  } catch (err) {
-    if (err instanceof Error && err.message.toLowerCase().includes("already exists")) {
+  }
+
+  const { data, error } = await admin.createUser({
+    email,
+    password,
+    email_confirm: true,
+    user_metadata: userMetadata,
+  });
+
+  if (error) {
+    if (error.message?.toLowerCase().includes("already exists")) {
       return { exists: true };
     }
-    return { error: err instanceof Error ? err.message : "Unknown error." };
+    return { error: error.message };
   }
+
+  return { success: true, userId: data?.user?.id, user: data?.user };
 }
 
 export async function POST(request: Request) {
@@ -73,9 +92,9 @@ export async function POST(request: Request) {
         role?: string;
       };
 
-    if (!email || !isValidGmail(email) || !code) {
+    if (!email || !isValidEmail(email) || !code) {
       return NextResponse.json(
-        { error: "Email and OTP code are required (Gmail only)." },
+        { error: "Valid email and OTP code are required." },
         { status: 400 },
       );
     }
@@ -98,19 +117,10 @@ export async function POST(request: Request) {
       );
     }
 
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY;
+    const supabase = getSupabaseAdminClient();
 
-    if (!supabaseUrl || !supabaseAnonKey) {
-      return NextResponse.json({ error: "Supabase configuration is missing." }, { status: 500 });
-    }
-
-    const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
-      cookies: {
-        getAll: () => [],
-        setAll: () => {},
-      },
-    });
+    let entry: { id?: string; code: string; expires_at: string; attempts: number; consumed: boolean } | null = null;
+    let isDbMode = true;
 
     const { data: rows, error: selectError } = await supabase
       .from("otps")
@@ -121,11 +131,19 @@ export async function POST(request: Request) {
       .limit(1);
 
     if (selectError) {
-      console.error("OTP select error", selectError);
-      return NextResponse.json({ error: "Unable to verify OTP." }, { status: 500 });
+      if (selectError.message?.toLowerCase().includes("could not find the table")) {
+        isDbMode = false;
+      } else {
+        console.error("OTP select error", selectError);
+        return NextResponse.json({ error: "Unable to verify OTP." }, { status: 500 });
+      }
     }
 
-    const entry = rows?.[0];
+    if (isDbMode && rows?.length) {
+      entry = rows[0];
+    } else {
+      entry = getOtpCache(normalizedEmail) ?? null;
+    }
 
     if (!entry || new Date(entry.expires_at).getTime() < Date.now()) {
       return NextResponse.json({ error: "OTP is invalid or expired." }, { status: 401 });
@@ -135,34 +153,45 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Maximum OTP verification attempts reached." }, { status: 429 });
     }
 
-    if (entry.code !== code) {
-      const { error: updateError } = await supabase
-        .from("otps")
-        .update({ attempts: entry.attempts + 1 })
-        .eq("id", entry.id);
+    if (entry.code !== code.trim()) {
+      if (isDbMode && entry.id) {
+        const { error: updateError } = await supabase
+          .from("otps")
+          .update({ attempts: entry.attempts + 1 })
+          .eq("id", entry.id);
 
-      if (updateError) {
-        console.error("OTP attempt update error", updateError);
+        if (updateError) {
+          console.error("OTP attempt update error", updateError);
+        }
       }
+
+      incrementOtpCacheAttempts(normalizedEmail);
 
       return NextResponse.json({ error: "OTP is invalid." }, { status: 401 });
     }
 
     // mark consumed
-    await supabase.from("otps").update({ consumed: true }).eq("id", entry.id);
+    if (isDbMode && entry.id) {
+      await supabase.from("otps").update({ consumed: true }).eq("id", entry.id);
+    }
+    markOtpCacheConsumed(normalizedEmail);
 
     const result = await ensureUserExists({
       email: normalizedEmail,
       fullName,
       surname,
       role,
+      password: code,
     });
 
     if (result.error) {
       return NextResponse.json({ error: result.error }, { status: 500 });
     }
 
-    return NextResponse.json({ success: true, message: "OTP verified; you may continue to authenticate with Google." });
+    return NextResponse.json({
+      success: true,
+      message: "OTP verified; user created/updated and ready to sign in with OTP or Google.",
+    });
   } catch (err) {
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "Unable to verify OTP." },

@@ -1,16 +1,17 @@
 import { NextResponse } from "next/server";
-import { createServerClient } from "@supabase/ssr";
+import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { enforceRateLimit } from "@/lib/rate-limit";
 import { sendOTPEmail } from "@/lib/email";
+import { saveOtpCache } from "@/lib/otp-store";
 
-const isValidGmail = (email: string) => /^[^\s@]+@gmail\.com$/i.test(email.trim());
+const isValidEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
 
 export async function POST(request: Request) {
   try {
     const { email } = (await request.json()) as { email?: string };
 
-    if (!email || !isValidGmail(email)) {
-      return NextResponse.json({ error: "Valid Gmail address is required to request OTP." }, { status: 400 });
+    if (!email || !isValidEmail(email)) {
+      return NextResponse.json({ error: "Valid email address is required to request OTP." }, { status: 400 });
     }
 
     const ip =
@@ -41,19 +42,7 @@ export async function POST(request: Request) {
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString();
 
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY;
-
-    if (!supabaseUrl || !supabaseAnonKey) {
-      return NextResponse.json({ error: "Supabase configuration is missing." }, { status: 500 });
-    }
-
-    const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
-      cookies: {
-        getAll: () => [],
-        setAll: () => {},
-      },
-    });
+    const supabase = getSupabaseAdminClient();
 
     const { error: insertError } = await supabase.from("otps").insert([
       {
@@ -65,9 +54,28 @@ export async function POST(request: Request) {
       },
     ]);
 
+    const isDebug = process.env.NODE_ENV !== "production";
+
     if (insertError) {
-      console.error("OTP insert error", insertError);
-      return NextResponse.json({ error: "Unable to store OTP." }, { status: 500 });
+      console.warn("OTP insert error, using in-memory fallback", insertError);
+      saveOtpCache(normalizedEmail, {
+        code: otp,
+        expires_at: expiresAt,
+        attempts: 0,
+        consumed: false,
+      });
+
+      if (isDebug && insertError.message) {
+        console.info("OTP fallback store detail", insertError.message);
+      }
+    } else {
+      // Keep a local copy so verification works for both DB and fallback path.
+      saveOtpCache(normalizedEmail, {
+        code: otp,
+        expires_at: expiresAt,
+        attempts: 0,
+        consumed: false,
+      });
     }
 
     try {

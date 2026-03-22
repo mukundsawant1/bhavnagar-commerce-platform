@@ -38,7 +38,7 @@ export default function AccountAuthPanel({ nextPath, copy }: AccountAuthPanelPro
   const [user, setUser] = useState<User | null>(null);
   const [orders, setOrders] = useState<UserOrder[]>([]);
 
-  const isGmailAddress = (value: string) => /^[^\s@]+@gmail\.com$/i.test(value.trim());
+  const isEmailAddress = (value: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
 
   const roleLabels: Record<UserRole, string> = {
     buyer: copy.roleBuyer,
@@ -90,8 +90,8 @@ export default function AccountAuthPanel({ nextPath, copy }: AccountAuthPanelPro
     try {
       const normalizedEmail = email.trim().toLowerCase();
 
-      if (!isGmailAddress(normalizedEmail)) {
-        throw new Error(copy.gmailOnlyError);
+      if (!isEmailAddress(normalizedEmail)) {
+        throw new Error(copy.emailInvalidError);
       }
 
       const res = await fetch("/api/auth/request-otp", {
@@ -122,8 +122,8 @@ export default function AccountAuthPanel({ nextPath, copy }: AccountAuthPanelPro
     try {
       const normalizedEmail = email.trim().toLowerCase();
 
-      if (!isGmailAddress(normalizedEmail)) {
-        throw new Error(copy.gmailOnlyError);
+      if (!isEmailAddress(normalizedEmail)) {
+        throw new Error(copy.emailInvalidError);
       }
 
       if (!otpCode.trim()) {
@@ -151,7 +151,21 @@ export default function AccountAuthPanel({ nextPath, copy }: AccountAuthPanelPro
         throw new Error(data?.error ?? copy.authFailed);
       }
 
+      // OTP is valid; ensure Supabase user exists (or is updated) on server
       setOtpVerified(true);
+
+      // Direct OTP sign in using the same code as temporary password.
+      const signInResult = await supabase.auth.signInWithPassword({
+        email: normalizedEmail,
+        password: otpCode.trim(),
+      });
+
+      if (signInResult.error) {
+        setError(`${copy.otpVerified} ${copy.otpAuthSignInFailed}: ${signInResult.error.message}`);
+        setMessage(data?.message ?? copy.otpVerified);
+        return;
+      }
+
       setMessage(copy.otpVerified);
     } catch (caughtError) {
       setError(caughtError instanceof Error ? caughtError.message : copy.authFailed);
@@ -166,8 +180,8 @@ export default function AccountAuthPanel({ nextPath, copy }: AccountAuthPanelPro
     setMessage(null);
 
     const normalizedEmail = email.trim().toLowerCase();
-    if (!isGmailAddress(normalizedEmail)) {
-      setError(copy.gmailOnlyError);
+    if (!isEmailAddress(normalizedEmail)) {
+      setError(copy.emailInvalidError);
       setLoading(false);
       return;
     }
@@ -335,7 +349,7 @@ export default function AccountAuthPanel({ nextPath, copy }: AccountAuthPanelPro
           <div className="flex flex-col gap-2">
             <input
               type="email"
-              placeholder={copy.gmailAddress}
+              placeholder={copy.emailAddress}
               value={email}
               onChange={(event) => {
                 setEmail(event.target.value);
@@ -351,7 +365,7 @@ export default function AccountAuthPanel({ nextPath, copy }: AccountAuthPanelPro
             <button
               type="button"
               onClick={requestOtp}
-              disabled={loading || !isGmailAddress(email)}
+              disabled={loading || !isEmailAddress(email)}
               className="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-500 disabled:opacity-60"
             >
               {copy.requestOtp}
