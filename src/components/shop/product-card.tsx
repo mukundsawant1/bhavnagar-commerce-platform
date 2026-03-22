@@ -17,9 +17,9 @@ export default function ProductCard({ product, addLabel, askLabel }: ProductCard
   const { addItem } = useCart();
   const { showToast } = useToast();
   const initialSettings = getProductSettings(product.id);
-  const initialMinBulk = typeof initialSettings.minBulkKg === "number" ? initialSettings.minBulkKg : 0;
+  const initialMinBulk = typeof initialSettings.minBulkKg === "number" ? initialSettings.minBulkKg : product.minBulkKg ?? 1;
 
-  const [quantity, setQuantity] = useState(initialMinBulk > 0 ? initialMinBulk : 1);
+  const [quantity, setQuantity] = useState(initialMinBulk);
   const [added, setAdded] = useState(false);
   const [minBulk] = useState(initialMinBulk);
 
@@ -114,11 +114,16 @@ export default function ProductCard({ product, addLabel, askLabel }: ProductCard
             <button
               type="button"
               onClick={handleAdd}
-              disabled={!isAvailable || quantity < product.minBulkKg}
+              disabled={!isAvailable || quantity < minBulkDisplay || quantity > product.availableKg}
               className="flex-1 rounded-md bg-teal-500 px-3 py-2 text-xs font-semibold text-slate-50 hover:bg-teal-400 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {added ? "Added" : addLabel}
             </button>
+            {!isAvailable ? (
+              <span className="text-xs text-red-600">Not available</span>
+            ) : quantity < minBulkDisplay ? (
+              <span className="text-xs text-amber-600">Minimum {minBulkDisplay} required</span>
+            ) : null}
             <button
               type="button"
               className="flex-1 rounded-md border border-slate-300 px-3 py-2 text-xs font-semibold"
