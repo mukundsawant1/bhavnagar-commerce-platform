@@ -43,6 +43,22 @@ async function ensureUserExists({
     role: role ?? "buyer",
   };
 
+  async function syncProfile(userId: string) {
+    const upsertData = {
+      id: userId,
+      full_name: userMetadata.full_name,
+      role: userMetadata.role,
+    };
+
+    const { error } = await supabase.from("profiles").upsert(upsertData, {
+      onConflict: "id",
+    });
+
+    if (error) {
+      console.warn("Failed to sync profile", error);
+    }
+  }
+
   const getExistingUser = async () => {
     if (typeof admin.listUsers !== "function") return null;
 
@@ -80,6 +96,8 @@ async function ensureUserExists({
       return { error: error.message || "Unable to update existing user." };
     }
 
+    await syncProfile(existingUser.id);
+
     return { success: true, userId: existingUser.id, user: data?.user ?? existingUser };
   }
 
@@ -103,6 +121,10 @@ async function ensureUserExists({
       return { exists: true };
     }
     return { error: error.message };
+  }
+
+  if (data?.user?.id) {
+    await syncProfile(data.user.id);
   }
 
   return { success: true, userId: data?.user?.id, user: data?.user };

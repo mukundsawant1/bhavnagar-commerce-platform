@@ -18,6 +18,7 @@ export default function Header({ language, dictionary }: HeaderProps) {
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
   const [userLoggedIn, setUserLoggedIn] = useState(false);
   const [userName, setUserName] = useState<string | null>(null);
+  const [userEmail, setUserEmail] = useState<string | null>(null);
   const [userRole, setUserRole] = useState<string>("buyer");
   const { totalQuantity } = useCart();
   const shouldAnimate = totalQuantity > 0;
@@ -45,12 +46,14 @@ export default function Header({ language, dictionary }: HeaderProps) {
           .single();
 
         if (mounted) {
-          setUserName(profile?.full_name ?? user.user_metadata?.full_name ?? null);
+          setUserEmail(user.email ?? null);
+          setUserName(profile?.full_name ?? user.user_metadata?.full_name ?? user.email ?? null);
           setUserRole((profile?.role as string) ?? (user.user_metadata?.role as string) ?? "buyer");
         }
       } else {
         if (mounted) {
           setUserName(null);
+          setUserEmail(null);
           setUserRole("buyer");
         }
       }
@@ -134,7 +137,7 @@ export default function Header({ language, dictionary }: HeaderProps) {
           <div className="flex flex-wrap items-center justify-start gap-4 text-xs sm:justify-end sm:text-sm">
             <Link href="/account" className="rounded-md border border-transparent px-2 py-1 hover:border-white/40">
               <span className="block text-[11px] text-slate-300">
-                {userLoggedIn ? `Hello, ${userName ?? "User"}` : dictionary.layout.signInGreeting}
+                {userLoggedIn ? `Hello, ${userName ?? userEmail ?? "User"}` : dictionary.layout.signInGreeting}
               </span>
               <span className="font-semibold">{dictionary.layout.account}</span>
             </Link>
