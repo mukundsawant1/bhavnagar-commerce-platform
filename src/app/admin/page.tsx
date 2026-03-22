@@ -64,34 +64,6 @@ export default async function AdminPage() {
       <AdminReportCard orders={safeOrders} />
 
       <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <h2 className="text-lg font-semibold">Shareable Report</h2>
-        <p className="mt-1 text-sm text-muted">Copy a summary report to share with other team members.</p>
-        <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <p className="text-sm font-semibold">Orders</p>
-            <p className="text-xs text-slate-600">Total orders: {safeOrders.length}</p>
-            <p className="text-xs text-slate-600">Value: Rs. {safeOrders.reduce((sum, order) => sum + (order.amount ?? 0), 0)}</p>
-          </div>
-          <button
-            type="button"
-            onClick={() => {
-              const report = {
-                timestamp: new Date().toISOString(),
-                totalOrders: safeOrders.length,
-                totalValue: safeOrders.reduce((sum, order) => sum + (order.amount ?? 0), 0),
-              };
-
-              navigator.clipboard.writeText(JSON.stringify(report, null, 2));
-              alert("Report copied to clipboard. Share it with your team.");
-            }}
-            className="rounded-md bg-teal-500 px-4 py-2 text-sm font-semibold text-slate-50 hover:bg-teal-400"
-          >
-            Copy report
-          </button>
-        </div>
-      </section>
-
-      <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
         <h2 className="text-lg font-semibold">Farm Partner Directory</h2>
         <ul className="mt-4 space-y-3">
           {farmPartners.map((farm) => (
