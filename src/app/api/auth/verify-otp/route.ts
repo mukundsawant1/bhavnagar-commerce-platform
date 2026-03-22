@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { enforceRateLimit } from "@/lib/rate-limit";
-import { getOtpCache, markOtpCacheConsumed, incrementOtpCacheAttempts } from "@/lib/otp-store";
+import { markOtpCacheConsumed, incrementOtpCacheAttempts } from "@/lib/otp-store";
 
 const isValidEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
 
@@ -129,33 +129,25 @@ export async function POST(request: Request) {
 
     const supabase = getSupabaseAdminClient();
 
-    let entry: { id?: string; code: string; expires_at: string; attempts: number; consumed: boolean } | null = null;
-    let isDbMode = true;
+    const now = new Date().toISOString();
 
     const { data: rows, error: selectError } = await supabase
       .from("otps")
       .select("id,code,expires_at,attempts,consumed")
       .eq("email", normalizedEmail)
       .eq("consumed", false)
+      .gte("expires_at", now)
       .order("created_at", { ascending: false })
       .limit(1);
 
     if (selectError) {
-      if (selectError.message?.toLowerCase().includes("could not find the table")) {
-        isDbMode = false;
-      } else {
-        console.error("OTP select error", selectError);
-        return NextResponse.json({ error: "Unable to verify OTP." }, { status: 500 });
-      }
+      console.error("OTP select error", selectError);
+      return NextResponse.json({ error: "Unable to verify OTP." }, { status: 500 });
     }
 
-    if (isDbMode && rows?.length) {
-      entry = rows[0];
-    } else {
-      entry = getOtpCache(normalizedEmail) ?? null;
-    }
+    const entry = rows?.[0] ?? null;
 
-    if (!entry || new Date(entry.expires_at).getTime() < Date.now()) {
+    if (!entry) {
       return NextResponse.json({ error: "OTP is invalid or expired." }, { status: 401 });
     }
 
@@ -173,7 +165,7 @@ export async function POST(request: Request) {
     if (entry.code !== code.trim()) {
       const newAttempts = entry.attempts + 1;
 
-      if (isDbMode && entry.id) {
+      if (entry.id) {
         const { error: updateError } = await supabase
           .from("otps")
           .update({ attempts: newAttempts })
@@ -206,8 +198,7 @@ export async function POST(request: Request) {
       );
     }
 
-    // mark consumed
-    if (isDbMode && entry.id) {
+    if (entry.id) {
       await supabase.from("otps").update({ consumed: true }).eq("id", entry.id);
     }
     markOtpCacheConsumed(normalizedEmail);

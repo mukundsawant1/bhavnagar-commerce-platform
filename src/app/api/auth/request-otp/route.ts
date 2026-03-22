@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { enforceRateLimit } from "@/lib/rate-limit";
 import { sendOTPEmail } from "@/lib/email";
-import { saveOtpCache } from "@/lib/otp-store";
 
 const isValidEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
 
@@ -54,28 +53,12 @@ export async function POST(request: Request) {
       },
     ]);
 
-    const isDebug = process.env.NODE_ENV !== "production";
-
     if (insertError) {
-      console.warn("OTP insert error, using in-memory fallback", insertError);
-      saveOtpCache(normalizedEmail, {
-        code: otp,
-        expires_at: expiresAt,
-        attempts: 0,
-        consumed: false,
-      });
-
-      if (isDebug && insertError.message) {
-        console.info("OTP fallback store detail", insertError.message);
-      }
-    } else {
-      // Keep a local copy so verification works for both DB and fallback path.
-      saveOtpCache(normalizedEmail, {
-        code: otp,
-        expires_at: expiresAt,
-        attempts: 0,
-        consumed: false,
-      });
+      console.error("OTP insert error", insertError);
+      return NextResponse.json(
+        { error: "Unable to store OTP. Please retry after a moment." },
+        { status: 500 },
+      );
     }
 
     try {
