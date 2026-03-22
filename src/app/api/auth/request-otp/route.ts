@@ -56,6 +56,46 @@ export async function POST(request: Request) {
 
     if (insertError) {
       console.error("OTP insert error", insertError);
+
+      const isTableMissing = insertError.message?.includes("Could not find the table 'public.otps'");
+      if (isTableMissing) {
+        if (process.env.NODE_ENV !== "production") {
+          saveOtpCache(normalizedEmail, {
+            code: otp,
+            expires_at: expiresAt,
+            attempts: 0,
+            consumed: false,
+          });
+          console.warn("OTP table missing; using fallback cache for local development.");
+
+          try {
+            await sendOTPEmail(normalizedEmail, otp);
+          } catch (emailError) {
+            console.error("OTP email send failed", emailError);
+            return NextResponse.json(
+              { error: "Unable to send OTP email. Check email configuration." },
+              { status: 500 },
+            );
+          }
+
+          return NextResponse.json({
+            success: true,
+            message:
+              "OTP sent via fallback cache (local dev only). Run database migrations to persist OTP table (supabase/migrations/20260311_add_otps_table.sql).",
+            migrationRequired: true,
+          });
+        }
+
+        return NextResponse.json(
+          {
+            error:
+              "OTP table missing. Please apply database migrations and restart the app. See supabase/migrations/20260311_add_otps_table.sql.",
+            migrationRequired: true,
+          },
+          { status: 500 },
+        );
+      }
+
       if (process.env.NODE_ENV !== "production") {
         saveOtpCache(normalizedEmail, {
           code: otp,
@@ -64,12 +104,12 @@ export async function POST(request: Request) {
           consumed: false,
         });
         console.warn("Stored OTP in fallback cache for local dev, but DB insert failed.");
-      } else {
-        return NextResponse.json(
-          { error: "Unable to store OTP. Please retry after a moment." },
-          { status: 500 },
-        );
       }
+
+      return NextResponse.json(
+        { error: "Unable to store OTP. Please retry after a moment." },
+        { status: 500 },
+      );
     }
 
     try {

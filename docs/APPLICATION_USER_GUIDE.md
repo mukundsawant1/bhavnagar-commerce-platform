@@ -195,6 +195,12 @@ npm run dev
 ```bash
 curl -s http://localhost:3000/api/auth/db-health | jq
 ```
+
+If the table is missing, the route auto-creates it (in supported environments). You may receive:
+- `migrationRequired: true` (when migration fails)
+- `message: "otps table created automatically."` (when creation succeeded)
+
+This ensures OTP flow works without manual migration after deploy.
 3. Expected for healthy system:
 ```json
 {

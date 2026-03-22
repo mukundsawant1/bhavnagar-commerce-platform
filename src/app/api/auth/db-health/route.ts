@@ -18,14 +18,32 @@ function getGitInfo() {
 export async function GET() {
   try {
     const supabase = getSupabaseAdminClient();
-    const { data, error } = await supabase.from("otps").select("id").limit(1);
 
-    if (error) {
+    const { data: rows, error: selectError } = await supabase
+      .from("otps")
+      .select("id")
+      .limit(1);
+
+    if (selectError) {
+      if (selectError.message?.includes("Could not find the table 'public.otps'")) {
+        return NextResponse.json(
+          {
+            healthy: false,
+            db: "unhealthy",
+            migrationRequired: true,
+            error: "otps table missing. Please run database migrations (supabase/migrations/20260311_add_otps_table.sql).",
+            timestamp: new Date().toISOString(),
+            ...getGitInfo(),
+          },
+          { status: 500 },
+        );
+      }
+
       return NextResponse.json(
         {
           healthy: false,
           db: "unhealthy",
-          dbError: error.message,
+          dbError: selectError.message,
           timestamp: new Date().toISOString(),
           ...getGitInfo(),
         },
@@ -36,7 +54,8 @@ export async function GET() {
     return NextResponse.json({
       healthy: true,
       db: "ok",
-      sampleOtps: data?.length ?? 0,
+      sampleOtps: rows?.length ?? 0,
+      migrationRequired: false,
       timestamp: new Date().toISOString(),
       ...getGitInfo(),
     });

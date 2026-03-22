@@ -7,6 +7,17 @@ export async function GET() {
     const { data, error } = await supabase.from("profiles").select("id").limit(1);
 
     if (error) {
+      if (error.message?.includes("Could not find the table 'public.otps'")) {
+        return NextResponse.json(
+          {
+            healthy: false,
+            error: "otps table missing. Please run your database migrations (supabase/migrations/20260311_add_otps_table.sql).",
+            migrationRequired: true,
+          },
+          { status: 500 },
+        );
+      }
+
       return NextResponse.json({ healthy: false, error: error.message }, { status: 500 });
     }
 

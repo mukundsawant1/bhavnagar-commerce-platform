@@ -138,21 +138,38 @@ export async function POST(request: Request) {
 
     const now = new Date().toISOString();
 
-    const { data: rows, error: selectError } = await supabase
-      .from("otps")
-      .select("id,code,expires_at,attempts,consumed")
-      .eq("email", normalizedEmail)
-      .eq("consumed", false)
-      .gte("expires_at", now)
-      .order("created_at", { ascending: false })
-      .limit(1);
+    let entry: OtpEntry | null = null;
+    try {
+      const { data: rows, error: selectError } = await supabase
+        .from("otps")
+        .select("id,code,expires_at,attempts,consumed")
+        .eq("email", normalizedEmail)
+        .eq("consumed", false)
+        .order("created_at", { ascending: false })
+        .limit(1);
 
-    if (selectError) {
-      console.error("OTP select error", selectError);
-      return NextResponse.json({ error: "Unable to verify OTP." }, { status: 500 });
+      if (selectError) {
+        console.error("OTP select error", {
+          email: normalizedEmail,
+          selectError,
+        });
+        return NextResponse.json(
+          { error: "Unable to verify OTP due to data store issue." },
+          { status: 500 },
+        );
+      }
+
+      entry = rows?.[0] ?? null;
+    } catch (err) {
+      console.error("OTP select exception", {
+        email: normalizedEmail,
+        err,
+      });
+      return NextResponse.json(
+        { error: "Unable to verify OTP due to unexpected server error." },
+        { status: 500 },
+      );
     }
-
-    let entry: OtpEntry | null = rows?.[0] ?? null;
     let isFallback = false;
 
     if (!entry) {
@@ -164,6 +181,18 @@ export async function POST(request: Request) {
     }
 
     if (!entry) {
+      const cached = getOtpCache(normalizedEmail);
+      if (cached) {
+        console.warn("OTP verify fallback: no DB row found, using cache", normalizedEmail, cached);
+        entry = cached;
+        isFallback = true;
+      } else {
+        return NextResponse.json({ error: "OTP is invalid or expired." }, { status: 401 });
+      }
+    }
+
+    const expiry = new Date(entry.expires_at);
+    if (expiry.getTime() < Date.now()) {
       return NextResponse.json({ error: "OTP is invalid or expired." }, { status: 401 });
     }
 
@@ -229,6 +258,10 @@ export async function POST(request: Request) {
     });
 
     if (result.error) {
+      console.error("OTP verify user ensureUserExists failed", {
+        email: normalizedEmail,
+        error: result.error,
+      });
       return NextResponse.json({ error: result.error }, { status: 500 });
     }
 
