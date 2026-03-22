@@ -18,12 +18,14 @@ async function ensureUserExists({
   surname,
   role,
   password,
+  mode,
 }: {
   email: string;
   fullName?: string;
   surname?: string;
   role?: string;
   password: string;
+  mode: "signin" | "signup";
 }) {
   const supabase = getSupabaseAdminClient();
 
@@ -54,6 +56,10 @@ async function ensureUserExists({
   const existingUser = await getExistingUser();
 
   if (existingUser) {
+    if (mode === "signup") {
+      return { error: "Email already registered. Please sign in instead." };
+    }
+
     if (typeof admin.updateUserById !== "function") {
       return { error: "Supabase admin updateUserById not available." };
     }
@@ -75,6 +81,10 @@ async function ensureUserExists({
     }
 
     return { success: true, userId: existingUser.id, user: data?.user ?? existingUser };
+  }
+
+  if (mode === "signin") {
+    return { error: "User not found. Please sign up first." };
   }
 
   if (typeof admin.createUser !== "function") {
@@ -100,14 +110,19 @@ async function ensureUserExists({
 
 export async function POST(request: Request) {
   try {
-    const { email, code, fullName, surname, role } =
+    const { email, code, fullName, surname, role, mode } =
       (await request.json()) as {
         email?: string;
         code?: string;
         fullName?: string;
         surname?: string;
         role?: string;
+        mode?: "signin" | "signup";
       };
+
+    if (mode !== "signin" && mode !== "signup") {
+      return NextResponse.json({ error: "mode must be 'signin' or 'signup'." }, { status: 400 });
+    }
 
     if (!email || !isValidEmail(email) || !code) {
       return NextResponse.json(
@@ -255,6 +270,7 @@ export async function POST(request: Request) {
       surname,
       role,
       password: code,
+      mode,
     });
 
     if (result.error) {

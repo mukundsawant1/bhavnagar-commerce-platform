@@ -176,6 +176,7 @@ export default function AccountAuthPanel({ copy }: AccountAuthPanelProps) {
           fullName: fullName.trim(),
           surname: surname.trim(),
           role,
+          mode,
         }),
       });
 
