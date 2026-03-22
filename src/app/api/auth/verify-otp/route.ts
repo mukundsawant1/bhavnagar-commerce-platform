@@ -47,11 +47,21 @@ async function ensureUserExists({
   const existingUser = await getExistingUser();
 
   if (existingUser) {
-    const { data, error } = await admin.updateUserById?.(existingUser.id, {
+    if (typeof admin.updateUserById !== "function") {
+      return { error: "Supabase admin updateUserById not available." };
+    }
+
+    const updateResult = await admin.updateUserById(existingUser.id, {
       password,
       email_confirm: true,
       user_metadata: userMetadata,
     });
+
+    if (!updateResult) {
+      return { error: "Failed to update existing user." };
+    }
+
+    const { data, error } = updateResult;
 
     if (error) {
       return { error: error.message || "Unable to update existing user." };

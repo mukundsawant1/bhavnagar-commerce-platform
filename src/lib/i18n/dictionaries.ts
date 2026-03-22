@@ -127,6 +127,7 @@ export type AppDictionary = {
     fullName: string;
     surname: string;
     emailAddress: string;
+    gmailAddress: string;
     otpCode: string;
     requestOtp: string;
     verifyOtp: string;
@@ -135,6 +136,7 @@ export type AppDictionary = {
     otpRequired: string;
     otpBeforeGoogle: string;
     otpVerifyRequired: string;
+    otpAuthSignInFailed: string;
     fullNameRequired: string;
     password: string;
     emailInvalidError: string;
@@ -296,6 +298,7 @@ export const dictionaries: Record<AppLanguage, AppDictionary> = {
       fullName: "Full name",
       surname: "Surname (optional)",
       emailAddress: "Email address",
+      gmailAddress: "Gmail address",
       otpCode: "OTP code",
       requestOtp: "Request OTP",
       verifyOtp: "Verify OTP",
@@ -457,6 +460,7 @@ export const dictionaries: Record<AppLanguage, AppDictionary> = {
       signUp: "साइन अप",
       fullName: "पूरा नाम",
       surname: "उपनाम (वैकल्पिक)",
+      emailAddress: "ईमेल पता",
       gmailAddress: "जीमेल पता",
       otpCode: "ओटीपी कोड",
       requestOtp: "ओटीपी अनुरोध करें",
@@ -620,6 +624,7 @@ export const dictionaries: Record<AppLanguage, AppDictionary> = {
       fullName: "પૂર્ણ નામ",
       surname: "ઉપનામ (વૈકલ્પિક)",
       emailAddress: "ઈમેલ સરનામું",
+      gmailAddress: "Gmail સરનામું",
       otpCode: "ઓટીફી કોડ",
       requestOtp: "ઓટીફી માંગો",
       verifyOtp: "ઓટીફી ચકાસો",
