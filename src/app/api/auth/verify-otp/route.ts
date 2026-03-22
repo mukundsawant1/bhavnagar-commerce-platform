@@ -5,6 +5,13 @@ import { getOtpCache, markOtpCacheConsumed, incrementOtpCacheAttempts } from "@/
 
 const isValidEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
 
+type OtpRow = { id: string; code: string; expires_at: string; attempts: number; consumed: boolean };
+type OtpCacheOnly = { code: string; expires_at: string; attempts: number; consumed: boolean };
+
+type OtpEntry = OtpRow | OtpCacheOnly;
+
+const isOtpRow = (entry: OtpEntry): entry is OtpRow => typeof (entry as OtpRow).id === "string";
+
 async function ensureUserExists({
   email,
   fullName,
@@ -145,7 +152,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Unable to verify OTP." }, { status: 500 });
     }
 
-    let entry = rows?.[0] ?? null;
+    let entry: OtpEntry | null = rows?.[0] ?? null;
     let isFallback = false;
 
     if (!entry) {
@@ -174,7 +181,7 @@ export async function POST(request: Request) {
     if (entry.code !== code.trim()) {
       const newAttempts = entry.attempts + 1;
 
-      if (!isFallback && entry.id) {
+      if (!isFallback && isOtpRow(entry)) {
         const { error: updateError } = await supabase
           .from("otps")
           .update({ attempts: newAttempts })
@@ -207,7 +214,7 @@ export async function POST(request: Request) {
       );
     }
 
-    if (!isFallback && entry.id) {
+    if (!isFallback && isOtpRow(entry)) {
       await supabase.from("otps").update({ consumed: true }).eq("id", entry.id);
     } else {
       markOtpCacheConsumed(normalizedEmail);
