@@ -17,7 +17,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Bhavnagar Bulk Produce",
+  title: "FreMi",
   description: "Bulk fruits and vegetables marketplace connecting buyers, admin, and farm owners",
 };
 
@@ -40,7 +40,7 @@ export default async function RootLayout({
 
         <footer className="mt-8 border-t border-slate-300 bg-slate-100">
           <div className="shell-container flex flex-col gap-2 py-6 text-sm text-slate-600 sm:flex-row sm:items-center sm:justify-between">
-            <p>Bhavnagar Commerce - scale bulk produce procurement with secure farm-to-market workflows.</p>
+            <p>FreMi - scale bulk produce procurement with secure farm-to-home.</p>
             <p className="font-medium">{dictionary.layout.workflowFooter}</p>
           </div>
         </footer>

@@ -63,7 +63,7 @@ export default function CartView({ dictionary }: CartViewProps) {
         {hasItems ? (
           <div className="mt-6 space-y-4">
             {items.map((item) => (
-              <div key={item.id} className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+              <div key={item.lineId} className="rounded-xl border border-slate-200 bg-slate-50 p-4">
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                   <div>
                     <p className="font-semibold">{item.name}</p>
@@ -72,21 +72,21 @@ export default function CartView({ dictionary }: CartViewProps) {
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
-                    <label className="text-xs font-semibold text-slate-600" htmlFor={`qty-${item.id}`}>
+                    <label className="text-xs font-semibold text-slate-600" htmlFor={`qty-${item.lineId}`}>
                       Qty
                     </label>
                     <input
-                      id={`qty-${item.id}`}
+                      id={`qty-${item.lineId}`}
                       type="number"
                       value={item.quantity}
                       min={1}
-                      onChange={(event) => updateQuantity(item.id, Number(event.target.value))}
+                      onChange={(event) => updateQuantity(item.lineId, Number(event.target.value))}
                       className="w-20 rounded-md border border-slate-300 px-2 py-1 text-sm"
                     />
                     <button
                       type="button"
                       onClick={() => {
-                        removeItem(item.id);
+                        removeItem(item.lineId);
                         showToast(`${item.name} removed from cart`, "info");
                       }}
                       className="rounded-md border border-transparent bg-red-50 px-3 py-1 text-xs font-semibold text-red-700 hover:bg-red-100"
@@ -115,7 +115,7 @@ export default function CartView({ dictionary }: CartViewProps) {
         <div className="mt-4 space-y-2 text-sm text-slate-600">
           <div className="flex justify-between">
             <span>{dictionary.totalQuantity}</span>
-            <span>{totalQuantity} kg</span>
+            <span>{totalQuantity.toFixed(3).replace(/\.?0+$/, "")} kg</span>
           </div>
           <div className="flex justify-between">
             <span>{dictionary.estimatedValue}</span>
