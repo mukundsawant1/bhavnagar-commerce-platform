@@ -20,28 +20,33 @@ export default function ProductCard({ product, addLabel, askLabel }: ProductCard
   const initialMinBulk = typeof initialSettings.minBulkKg === "number" ? initialSettings.minBulkKg : product.minBulkKg ?? 1;
 
   const [quantity, setQuantity] = useState(initialMinBulk);
+  const [selectedUnit, setSelectedUnit] = useState<"kg" | "g">("kg");
   const [added, setAdded] = useState(false);
   const [minBulk] = useState(initialMinBulk);
 
   const isAvailable = product.status === "available";
+  const isGram = selectedUnit === "g";
+  const minBulkForUnit = isGram ? minBulk * 1000 : minBulk;
+  const availableForUnit = isGram ? product.availableKg * 1000 : product.availableKg;
+  const pricePerUnit = isGram ? product.pricePerKg / 1000 : product.pricePerKg;
 
   const handleAdd = () => {
-    if (!isAvailable || quantity <= 0 || quantity < minBulk) return;
+    if (!isAvailable || quantity <= 0 || quantity < minBulkForUnit) return;
+    const lineId = `${product.id}::${selectedUnit}`;
     addItem({
+      lineId,
       id: product.id,
       name: product.name,
       quantity,
-      unit: product.unit,
-      pricePerUnit: product.pricePerKg,
+      unit: selectedUnit,
+      pricePerUnit,
       farmName: product.farmName,
     });
 
-    showToast(`${product.name} added to cart`, "success");
+    showToast(`${product.name} (${selectedUnit}) added to cart`, "success");
     setAdded(true);
     window.setTimeout(() => setAdded(false), 1500);
   };
-
-  const minBulkDisplay = minBulk ?? product.minBulkKg;
 
   return (
     <article className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:shadow-lg">
@@ -84,22 +89,42 @@ export default function ProductCard({ product, addLabel, askLabel }: ProductCard
         {product.photoHint ? <p className="mt-1 text-xs text-muted">Photo: {product.photoHint}</p> : null}
         <p className="mt-2 text-xs text-slate-600">Quality Grade: {product.qualityGrade}</p>
         <div className="mt-2 rounded-md bg-slate-50 px-2 py-1 text-xs text-slate-700">
-          {minBulk > 0 ? <span>Min bulk: {minBulkDisplay} {product.unit} | </span> : null}
-          <span>Available: {product.availableKg} {product.unit}</span>
+          {minBulk > 0 ? <span>Min bulk: {minBulkForUnit} {selectedUnit} | </span> : null}
+          <span>Available: {availableForUnit} {selectedUnit}</span>
         </div>
-        <p className="mt-2 text-2xl font-black text-slate-900">Rs. {product.pricePerKg}/{product.unit}</p>
+        <p className="mt-2 text-2xl font-black text-slate-900">
+          Rs. {pricePerUnit.toFixed(3).replace(/\.?0+$/, "")}/{selectedUnit}
+        </p>
 
         <div className="mt-3 flex flex-col gap-2">
           <div className="flex items-center gap-2">
+            <label className="text-xs font-semibold text-slate-600" htmlFor={`unit-${product.id}`}>
+              Unit
+            </label>
+            <select
+              id={`unit-${product.id}`}
+              value={selectedUnit}
+              onChange={(event) => {
+                const nextUnit = event.target.value as "kg" | "g";
+                setSelectedUnit(nextUnit);
+                setQuantity(nextUnit === "g" ? minBulk * 1000 : minBulk);
+              }}
+              className="rounded-md border border-slate-200 px-2 py-1 text-sm"
+            >
+              <option value="kg">kg</option>
+              <option value="g">gram</option>
+            </select>
+          </div>
+          <div className="flex items-center gap-2">
             <label className="text-xs font-semibold text-slate-600" htmlFor={`qty-${product.id}`}>
-              Qty ({product.unit})
+              Qty ({selectedUnit})
             </label>
             <input
               id={`qty-${product.id}`}
               type="number"
               value={quantity}
-              min={minBulkDisplay}
-              max={product.availableKg > 0 ? product.availableKg : undefined}
+              min={minBulkForUnit}
+              max={availableForUnit > 0 ? availableForUnit : undefined}
               onChange={(event) => {
                 const next = Number(event.target.value);
                 if (Number.isNaN(next)) return;
@@ -107,22 +132,22 @@ export default function ProductCard({ product, addLabel, askLabel }: ProductCard
               }}
               className="w-24 rounded-md border border-slate-200 px-2 py-1 text-sm"
             />
-            <span className="text-xs text-slate-500">min {minBulkDisplay}</span>
+            <span className="text-xs text-slate-500">min {minBulkForUnit}</span>
           </div>
 
           <div className="flex gap-2">
             <button
               type="button"
               onClick={handleAdd}
-              disabled={!isAvailable || quantity < minBulkDisplay || quantity > product.availableKg}
+              disabled={!isAvailable || quantity < minBulkForUnit || quantity > availableForUnit}
               className="flex-1 rounded-md bg-teal-500 px-3 py-2 text-xs font-semibold text-slate-50 hover:bg-teal-400 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {added ? "Added" : addLabel}
             </button>
             {!isAvailable ? (
               <span className="text-xs text-red-600">Not available</span>
-            ) : quantity < minBulkDisplay ? (
-              <span className="text-xs text-amber-600">Minimum {minBulkDisplay} required</span>
+            ) : quantity < minBulkForUnit ? (
+              <span className="text-xs text-amber-600">Minimum {minBulkForUnit} required</span>
             ) : null}
             <button
               type="button"

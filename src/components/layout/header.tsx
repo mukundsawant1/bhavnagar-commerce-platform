@@ -116,8 +116,14 @@ export default function Header({ language, dictionary }: HeaderProps) {
       <div className="bg-brand-blue text-white">
         <div className="shell-container grid items-center gap-3 py-3 md:grid-cols-[220px_1fr_320px]">
           <Link href="/" className="inline-flex items-center gap-2 rounded-md border border-transparent px-2 py-1 hover:border-white/40">
-            <span className="text-2xl font-black tracking-tight">Bhavnagar</span>
-            <span className="mt-2 text-xs font-semibold text-teal-200">commerce</span>
+                      <h1 className="text-center text-2xl font-black tracking-tight">
+                          FreMi
+                          <span className="block mt-2 text-xs font-semibold text-teal-200">
+                              Fresh for Mi & Family from Farm
+                          </span>
+                      </h1>
+            {/*<span className="text-2xl font-black tracking-tight">FreMi</span>*/}
+            {/*<span className="mt-2 text-xs font-semibold text-teal-200">Fresh for Mi & Family from Farm</span>*/}
           </Link>
 
           <div className="hidden md:flex min-w-0">
