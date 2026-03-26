@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900">
+  <defs>
+    <linearGradient id="g2" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#F2B183"/>
+      <stop offset="100%" stop-color="#E87038"/>
+    </linearGradient>
+  </defs>
+  <rect width="1600" height="900" fill="url(#g2)"/>
+  <text x="800" y="480" text-anchor="middle" fill="#fff" font-family="Arial, sans-serif" font-size="72" font-weight="700">
+    Vegetables Market Showcase
+  </text>
+  <text x="800" y="560" text-anchor="middle" fill="#fff" font-family="Arial, sans-serif" font-size="40" opacity="0.85">
+    High-quality local fallback for guaranteed display
+  </text>
+</svg>

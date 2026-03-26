@@ -1,3 +1,4 @@
+import HeroCarousel from "@/components/home/hero-carousel";
 import Link from "next/link";
 import { getServerI18n } from "@/lib/i18n/server";
 export const revalidate = 60;
@@ -6,33 +7,34 @@ export default async function Home() {
 
   return (
     <main className="shell-container space-y-6">
+      <HeroCarousel dictionary={dictionary.home} />
       <section className="grid gap-4 lg:grid-cols-[2fr_1fr]">
-        <div className="rounded-2xl bg-gradient-to-r from-slate-900 via-emerald-950 to-slate-900 p-8 text-white shadow-lg sm:p-10">
-              <p className="inline-block rounded-full bg-teal-500/20 px-3 py-1 text-xs font-semibold uppercase tracking-widest text-teal-300">
+        <div className="rounded-2xl bg-white p-8 text-slate-700 shadow-lg sm:p-10">
+          <p className="inline-block rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold uppercase tracking-widest text-emerald-700">
             {dictionary.home.heroTagline}
           </p>
-          <h1 className="mt-4 max-w-2xl text-4xl font-black leading-tight sm:text-5xl">
+          <h1 className="mt-4 max-w-2xl text-2xl font-black leading-tight sm:text-3xl">
             {dictionary.home.heroHeadline}
           </h1>
-          <p className="mt-4 max-w-xl text-sm text-slate-200 sm:text-base">
+          <p className="mt-4 max-w-xl text-sm text-slate-600 sm:text-base">
             {dictionary.home.heroCopy}
           </p>
           <div className="mt-7 flex flex-wrap gap-3">
             <Link
               href="/shop"
-              className="rounded-md bg-teal-500 px-5 py-2.5 text-sm font-semibold text-slate-50 transition hover:bg-teal-400"
+              className="rounded-md bg-emerald-700 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-600"
             >
               {dictionary.home.ctaBuyer}
             </Link>
             <Link
               href="/admin"
-              className="rounded-md border border-white/40 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-white/10"
+              className="rounded-md border border-slate-300 px-5 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-100"
             >
               {dictionary.home.ctaAdmin}
             </Link>
             <Link
               href="/farm"
-              className="rounded-md border border-white/40 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-white/10"
+              className="rounded-md border border-slate-300 px-5 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-100"
             >
               {dictionary.home.ctaFarm}
             </Link>

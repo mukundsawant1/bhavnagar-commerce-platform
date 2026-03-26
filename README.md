@@ -139,6 +139,22 @@ npm run check:supabase
 
 This validates the env variables and confirms the app can query the Supabase database.
 
+### Supabase CORS troubleshooting (auth init)
+If a browser user sees:
+
+> Cross-Origin Request Blocked: The Same Origin Policy disallows reading the remote resource at https://<project>.supabase.co/auth/v1/token?grant_type=password. (Reason: CORS request did not succeed)
+
+Then the issue is in Supabase Auth CORS settings, not app logic.
+
+1. In Supabase dashboard → Authentication → Settings:
+   - `Site URL` should match your app URL (e.g. `http://localhost:3000` for local dev, your production domain for deployed app).
+   - `Redirect URLs` should include `http://localhost:3000/*` and your production URL(s).
+   - `Additional redirect URLs` should include API routes used by auth flows.
+   - `Allowed CORS origins` should include `http://localhost:3000`, `http://127.0.0.1:3000`, and your deployment domain.
+2. Avoid wildcards in production; allow only explicit domains used by the app for compliance.
+3. Re-deploy or restart the frontend after making auth settings changes.
+
+If this occurs for a second laptop, ensure that the second laptop is using the same origin domain in the browser and not an incorrect host (for example `http://127.0.0.1:3000` vs `http://localhost:3000`).
 
 ## Database Expectations
 

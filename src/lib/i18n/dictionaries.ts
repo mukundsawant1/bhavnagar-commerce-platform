@@ -32,6 +32,12 @@ export type AppDictionary = {
     ctaBuyer: string;
     ctaAdmin: string;
     ctaFarm: string;
+    heroSlide1Headline: string;
+    heroSlide1Subtext: string;
+    heroSlide2Headline: string;
+    heroSlide2Subtext: string;
+    heroSlide3Headline: string;
+    heroSlide3Subtext: string;
     buyerPanelTitle: string;
     buyerPanelDesc: string;
     farmPanelTitle: string;
@@ -221,6 +227,12 @@ export const dictionaries: Record<AppLanguage, AppDictionary> = {
       card3Desc: "Mark produce available/unavailable and update stock.",
       card4Title: "Delivery Visibility",
       card4Desc: "Expected dispatch from farm and final date from admin.",
+      heroSlide1Headline: "Buyers, admin, and farms in perfect sync",
+      heroSlide1Subtext: "Bulk fruits and vegetables with live stock updates and delivery visibility",
+      heroSlide2Headline: "Farm-fresh vegetables for bulk orders",
+      heroSlide2Subtext: "From verified growers to your warehouse with admin checks in place",
+      heroSlide3Headline: "Seasonal fruits delivered with quality assurance",
+      heroSlide3Subtext: "Instant farm allocation, dispatch date and order certification",
       orderFlowTitle: "Order Flow",
       orderFlowStep1Title: "1. Buyer places order",
       orderFlowStep1Desc: "Select item and bulk quantity. Request enters admin queue.",
@@ -378,6 +390,12 @@ export const dictionaries: Record<AppLanguage, AppDictionary> = {
       ctaBuyer: "थोक ऑर्डर करें",
       ctaAdmin: "एडमिन कतार खोलें",
       ctaFarm: "फार्म मालिक डेस्क",
+      heroSlide1Headline: "खरीदार, प्रशासन और फार्म एक साथ जुड़े",
+      heroSlide1Subtext: "थोक फल और सब्ज़ियाँ लाइव स्टॉक अपडेट और वितरण दृश्यता के साथ",
+      heroSlide2Headline: "थोक आदेशों के लिए ताज़ा फार्म सब्ज़ियाँ",
+      heroSlide2Subtext: "पुष्ट उगाने वालों से आपके वेयरहाउस तक प्रशासनिक जांच के साथ",
+      heroSlide3Headline: "मौसमीन फल गुणवत्तापूर्ण डिलीवरी के साथ",
+      heroSlide3Subtext: "त्वरित फार्म आवंटन, प्रेषण तिथि और ऑर्डर प्रमाणन",
       buyerPanelTitle: "मिनटों में थोक ऑर्डर",
       buyerPanelDesc: "उत्पाद चुनें, न्यूनतम मात्रा और पसंदीदा डिलीवरी विंडो।",
       farmPanelTitle: "लाइव स्टॉक और तारीख पुष्टि",
@@ -547,6 +565,12 @@ export const dictionaries: Record<AppLanguage, AppDictionary> = {
       ctaBuyer: "થોક ઓર્ડર કરો",
       ctaAdmin: "એડમિન ક્યુ ખોલો",
       ctaFarm: "ફાર્મ માલિક ડેસ્ક",
+      heroSlide1Headline: "ખરીદાર, એડમિન અને ફાર્મ એકસાથ",
+      heroSlide1Subtext: "થોક ફળો અને શાકભાજી લાઇવ સ્ટોક અપડેટ સાથે",
+      heroSlide2Headline: "થોક ઓર્ડર્સ માટે તાજી શાકભાજી",
+      heroSlide2Subtext: "ચકાસેલ ઉગાડનાર પાસેથી તમારા વેરહાઉસ સુધી",
+      heroSlide3Headline: "મોસમી ફળો ગુણવત્તા ખાતરી સાથે પહોંચાડાય છે",
+      heroSlide3Subtext: "તુરંત ફાર્મ ફાળવણી અને ડિસ્પેચ અપડેટ",
       buyerPanelTitle: "મિનિટોમાં થોક ઓર્ડર",
       buyerPanelDesc: "ઉત્પાદનો પસંદ કરો, ન્યૂનતમ જથ્થો અને પસંદગીની ડિલિવરી વિન્ડો.",
       farmPanelTitle: "લાઇવ સ્ટોક અને તારીખ પુષ્ટિ",
